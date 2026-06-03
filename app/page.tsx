@@ -3,7 +3,7 @@
 import { useState } from "react"
 import { motion, AnimatePresence } from "framer-motion"
 import { Button } from "@/components/ui/button"
-import { X } from "lucide-react"
+import { X, Loader2 } from "lucide-react"
 
 // 結果データ型
 interface FortuneResult {
@@ -21,7 +21,7 @@ const fortuneResults: FortuneResult[] = [
     id: "daikyo",
     name: "大凶",
     dangerWord: "少しだけ",
-    oracle: "今日は「少しだけ」が一番危険。近づかないだけで、今日はもう勝ちです。",
+    oracle: "",
     avoidanceAction: "帰り道を一本変えて、パチンコ屋の前を通らない。",
     imageUrl: "/images/daikyo.jpg",
   },
@@ -29,7 +29,7 @@ const fortuneResults: FortuneResult[] = [
     id: "chokyo",
     name: "超凶",
     dangerWord: "給料日",
-    oracle: "財布に余裕がある日ほど危険。今日は使わない選択が吉です。",
+    oracle: "",
     avoidanceAction: "現金を持ち歩かず、必要な用事だけ済ませて帰る。",
     imageUrl: "/images/chokyo.jpg",
   },
@@ -37,11 +37,14 @@ const fortuneResults: FortuneResult[] = [
     id: "gokukyo",
     name: "極凶",
     dangerWord: "取り返す",
-    oracle: "今日は「取り返す」という言葉が出た時点で警戒日。深追いは財布も心も削ります。",
+    oracle: "",
     avoidanceAction: "パチンコ屋に近づかず、まっすぐ帰る。",
     imageUrl: "/images/gokukyo.jpg",
   },
 ]
+
+// フォールバックのお告げ
+const FALLBACK_ORACLE = "今日は近づかない日。行かないだけで、今日の勝ちは守れます。"
 
 // ランダムに結果を選択
 function getRandomFortune(): FortuneResult {
@@ -50,12 +53,12 @@ function getRandomFortune(): FortuneResult {
 }
 
 // シェアURL生成
-function getShareText(result: FortuneResult): string {
-  return `【${result.name}】今日の危険ワード「${result.dangerWord}」\n\n${result.oracle}\n\n#大凶おみくじ #ギャンブル回避`
+function getShareText(result: FortuneResult, oracle: string): string {
+  return `【${result.name}】今日の危険ワード「${result.dangerWord}」\n\n${oracle}\n\n#大凶おみくじ #ギャンブル回避`
 }
 
-function getTwitterShareUrl(result: FortuneResult): string {
-  const text = encodeURIComponent(getShareText(result))
+function getTwitterShareUrl(result: FortuneResult, oracle: string): string {
+  const text = encodeURIComponent(getShareText(result, oracle))
   const url = encodeURIComponent(typeof window !== "undefined" ? window.location.href : "")
   return `https://twitter.com/intent/tweet?text=${text}&url=${url}`
 }
@@ -111,9 +114,13 @@ function Decorations() {
 // 結果モーダルコンポーネント
 function ResultModal({
   result,
+  oracle,
+  isLoading,
   onClose,
 }: {
   result: FortuneResult
+  oracle: string
+  isLoading: boolean
   onClose: () => void
 }) {
   return (
@@ -173,7 +180,14 @@ function ResultModal({
             {/* お告げ */}
             <div className="space-y-2">
               <p className="text-xs text-primary tracking-widest">お告げ</p>
-              <p className="text-foreground leading-relaxed">{result.oracle}</p>
+              {isLoading ? (
+                <div className="flex items-center gap-2 text-muted-foreground">
+                  <Loader2 className="w-4 h-4 animate-spin" />
+                  <span>お告げを授かっています...</span>
+                </div>
+              ) : (
+                <p className="text-foreground leading-relaxed">{oracle}</p>
+              )}
             </div>
 
             {/* 回避行動 */}
@@ -202,7 +216,7 @@ function ResultModal({
                 <Button
                   variant="outline"
                   className="flex-1 h-12 border-sky-500/50 text-sky-400 hover:bg-sky-500/10 hover:text-sky-300"
-                  onClick={() => window.open(getTwitterShareUrl(result), "_blank")}
+                  onClick={() => window.open(getTwitterShareUrl(result, oracle), "_blank")}
                 >
                   Xでシェア
                 </Button>
@@ -224,11 +238,29 @@ function ResultModal({
 export default function Home() {
   const [showResult, setShowResult] = useState(false)
   const [currentResult, setCurrentResult] = useState<FortuneResult | null>(null)
+  const [oracle, setOracle] = useState("")
+  const [isLoading, setIsLoading] = useState(false)
 
-  const handleDrawFortune = () => {
+  const handleDrawFortune = async () => {
     const result = getRandomFortune()
     setCurrentResult(result)
+    setOracle("")
+    setIsLoading(true)
     setShowResult(true)
+
+    try {
+      const response = await fetch("/api/omikuji", { method: "POST" })
+      if (!response.ok) {
+        throw new Error("API request failed")
+      }
+      const data = await response.json()
+      setOracle(data.data?.text || FALLBACK_ORACLE)
+    } catch (error) {
+      console.error("Failed to fetch oracle:", error)
+      setOracle(FALLBACK_ORACLE)
+    } finally {
+      setIsLoading(false)
+    }
   }
 
   const handleCloseResult = () => {
@@ -315,7 +347,7 @@ export default function Home() {
       {/* 結果モーダル */}
       <AnimatePresence>
         {showResult && currentResult && (
-          <ResultModal result={currentResult} onClose={handleCloseResult} />
+          <ResultModal result={currentResult} oracle={oracle} isLoading={isLoading} onClose={handleCloseResult} />
         )}
       </AnimatePresence>
     </main>
