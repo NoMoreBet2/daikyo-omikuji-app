@@ -254,7 +254,7 @@ export default function Home() {
         throw new Error("API request failed")
       }
       const data = await response.json()
-      setOracle(data.data?.text || FALLBACK_ORACLE)
+      setOracle(data.text || FALLBACK_ORACLE)
     } catch (error) {
       console.error("Failed to fetch oracle:", error)
       setOracle(FALLBACK_ORACLE)
