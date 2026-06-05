@@ -128,53 +128,19 @@ function WelcomePage({ onStart }: { onStart: () => void }) {
       animate="animate"
       exit="exit"
       transition={{ duration: 0.4 }}
-      className="flex-1 flex flex-col items-center justify-center px-6 py-12"
+      className="flex-1 flex flex-col items-center justify-end px-6 pb-12 pt-6"
+      style={{
+        backgroundColor: "#000000",
+        backgroundImage: "url('/welcome-top.png')",
+        backgroundSize: "contain",
+        backgroundPosition: "center",
+        backgroundRepeat: "no-repeat",
+      }}
     >
-      <div className="max-w-sm w-full space-y-8 text-center">
-        {/* 神社風の鳥居アイコン */}
-        <div className="inline-block">
-          <div className="relative">
-            <div className="absolute -inset-4 bg-accent/20 rounded-full blur-xl" />
-            <div className="relative w-24 h-24 mx-auto flex items-center justify-center">
-              <svg viewBox="0 0 100 100" className="w-full h-full text-accent">
-                <path
-                  d="M10 35 L10 30 L90 30 L90 35 L80 35 L80 90 L70 90 L70 35 L30 35 L30 90 L20 90 L20 35 Z"
-                  fill="currentColor"
-                />
-                <path d="M5 25 L95 25 L93 30 L7 30 Z" fill="currentColor" />
-                <path d="M0 20 L100 20 L98 25 L2 25 Z" fill="currentColor" />
-                <path d="M35 45 L65 45 L65 50 L35 50 Z" fill="currentColor" opacity="0.7" />
-              </svg>
-            </div>
-          </div>
-        </div>
-
-        {/* タイトル */}
-        <div className="space-y-3">
-          <h1 className="font-serif text-3xl md:text-4xl font-bold tracking-wider text-foreground">
-            賭内神社へようこそ
-          </h1>
-          <p className="text-lg text-foreground/90 leading-relaxed text-balance">
-            今日だけ行かない理由を、
-            <br />
-            運勢のせいにしよう。
-          </p>
-        </div>
-
-        {/* ヒーロー画像エリア */}
-        <div className="relative aspect-[4/3] bg-secondary/30 rounded-xl overflow-hidden border border-border">
-          <div className="absolute inset-0 flex items-center justify-center">
-            <div className="text-center space-y-3">
-              <div className="w-20 h-20 mx-auto rounded-full bg-accent/10 border-2 border-accent/30 flex items-center justify-center">
-                <span className="font-serif text-4xl text-accent font-bold">凶</span>
-              </div>
-              <p className="text-sm text-muted-foreground">悪い結果しか出ない、<br />ギャンブル回避おみくじ</p>
-            </div>
-          </div>
-        </div>
-
+      {/* 下部のコンテンツ */}
+      <div className="max-w-sm w-full space-y-6 text-center">
         {/* おみくじを引くボタン */}
-        <div className="pt-4">
+        <div>
           <Button
             onClick={onStart}
             size="lg"
