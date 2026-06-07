@@ -35,11 +35,32 @@ interface DrawResult {
   luckyItem: string
 }
 
+interface PurchaseExample {
+  name: string
+  price: number
+  unit: string
+}
+
 const yenFormatter = new Intl.NumberFormat("ja-JP", {
   style: "currency",
   currency: "JPY",
   maximumFractionDigits: 0,
 })
+
+const purchaseExamples: PurchaseExample[] = [
+  { name: "コンビニおにぎり", price: 180, unit: "個" },
+  { name: "カフェのコーヒー", price: 500, unit: "杯" },
+  { name: "定食ランチ", price: 1000, unit: "食" },
+  { name: "映画チケット", price: 2000, unit: "回" },
+  { name: "日帰り温泉", price: 3000, unit: "回" },
+  { name: "一週間分の食材", price: 7000, unit: "回" },
+  { name: "スニーカー", price: 12000, unit: "足" },
+  { name: "一泊旅行の宿", price: 15000, unit: "泊" },
+  { name: "ワイヤレスイヤホン", price: 18000, unit: "個" },
+  { name: "家電の買い替え資金", price: 30000, unit: "回" },
+  { name: "国内小旅行", price: 50000, unit: "回" },
+  { name: "新しいスマホ", price: 120000, unit: "台" },
+]
 
 function pickRandom<T>(items: T[]): T {
   return items[Math.floor(Math.random() * items.length)]
@@ -69,6 +90,23 @@ function getRandomLossMultiplier(): number {
 
 function roundUpToHundred(amount: number): number {
   return Math.ceil(amount / 100) * 100
+}
+
+function getPurchaseExamples(lossAmount: number) {
+  const affordable = purchaseExamples
+    .filter((item) => item.price <= lossAmount)
+    .map((item) => ({
+      ...item,
+      quantity: Math.max(1, Math.floor(lossAmount / item.price)),
+    }))
+
+  if (affordable.length <= 3) return affordable
+
+  const first = affordable[0]
+  const middle = affordable[Math.floor(affordable.length / 2)]
+  const last = affordable[affordable.length - 1]
+
+  return [first, middle, last]
 }
 
 function generateBoxMessages(box: OmikujiBox, fortune: FortuneResult) {
@@ -122,9 +160,14 @@ async function generateAiMessages(box: OmikujiBox, result: DrawResult) {
 
 function getShareText(result: DrawResult, selectedBox: OmikujiBox | null): string {
   const boxText = selectedBox ? `\n箱：${selectedBox.name}` : ""
+  const purchaseText = getPurchaseExamples(result.lossAmount)
+    .map((item) => `${item.name} 約${item.quantity}${item.unit}分`)
+    .join(" / ")
+
   return `【${result.fortune.title}】${boxText}
 レベル：${result.level}
 本日の想定負け金額：${yenFormatter.format(result.lossAmount)}
+買えたもの：${purchaseText}
 危険キーワード：${result.dangerKeyword}
 ラッキーアイテム：${result.luckyItem}
 
@@ -366,6 +409,7 @@ function ResultPage({
 }) {
   const fortune = result.fortune
   const levelImageUrl = `/omikuji/frames/img_level${result.level}.png`
+  const purchaseItems = getPurchaseExamples(result.lossAmount)
 
   return (
     <motion.div
@@ -404,6 +448,21 @@ function ResultPage({
 
         <ResultFrame title="おみくじ説明">
           <p className="text-foreground leading-relaxed">{fortune.description}</p>
+        </ResultFrame>
+
+        <ResultFrame title="この金額で買えたもの">
+          <div className="space-y-2">
+            {purchaseItems.map((item) => (
+              <div key={item.name} className="flex items-baseline justify-between gap-3 border-b border-primary/15 pb-2 last:border-b-0 last:pb-0">
+                <p className="text-sm text-foreground">{item.name}</p>
+                <p className="shrink-0 font-serif text-xl text-accent">
+                  約{item.quantity}
+                  {item.unit}分
+                </p>
+              </div>
+            ))}
+          </div>
+          <p className="text-xs text-muted-foreground">※金額は目安です。</p>
         </ResultFrame>
 
         <ResultFrame title="今日の危険キーワード">
