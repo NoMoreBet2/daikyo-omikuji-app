@@ -156,7 +156,6 @@ function getShareText(result: DrawResult, selectedBox: OmikujiBox | null): strin
 レベル：${result.level}
 本日の想定負け金額：${yenFormatter.format(result.lossAmount)}
 買えたもの：${purchaseItem.name}
-危険キーワード：${result.dangerKeyword}
 ラッキーアイテム：${result.luckyItem}
 
 ${result.fortune.description}
@@ -425,29 +424,28 @@ function ResultPage({
           />
         </div>
 
-        <div className="grid grid-cols-2 gap-3">
-          <ResultFrame title="大凶レベル" className="min-h-[100px]">
-            <img src={levelImageUrl} alt={`大凶レベル${result.level}`} className="h-7 w-auto" />
-          </ResultFrame>
-          <ResultFrame title="本日の想定負け金額" className="min-h-[100px]">
-            <p className="font-serif text-2xl text-accent">{yenFormatter.format(result.lossAmount)}</p>
-          </ResultFrame>
-        </div>
-
-        <ResultFrame title="おみくじ説明">
-          <p className="text-foreground leading-relaxed">{fortune.description}</p>
+        <ResultFrame title="大凶レベル + おみくじ説明">
+          <div className="space-y-4">
+            <div className="flex items-center gap-3">
+              <img src={levelImageUrl} alt={`大凶レベル${result.level}`} className="h-7 w-auto" />
+              <p className="font-serif text-xl text-accent">レベル{result.level}</p>
+            </div>
+            <p className="text-foreground leading-relaxed">{fortune.description}</p>
+          </div>
         </ResultFrame>
 
-        <ResultFrame title="この金額で買えたもの">
-          <div className="space-y-1">
-            <p className="text-sm text-muted-foreground">たとえば</p>
-            <p className="font-serif text-2xl text-foreground">{purchaseItem.name}</p>
+        <ResultFrame title="本日の想定負け金額 + この金額で買えたもの">
+          <div className="grid gap-4 sm:grid-cols-2">
+            <div className="space-y-1">
+              <p className="text-xs text-muted-foreground">本日の想定負け金額</p>
+              <p className="font-serif text-2xl text-accent">{yenFormatter.format(result.lossAmount)}</p>
+            </div>
+            <div className="space-y-1">
+              <p className="text-xs text-muted-foreground">たとえば</p>
+              <p className="font-serif text-2xl text-foreground">{purchaseItem.name}</p>
+            </div>
           </div>
           <p className="text-xs text-muted-foreground">※金額は目安です。</p>
-        </ResultFrame>
-
-        <ResultFrame title="今日の危険キーワード">
-          <p className="font-serif text-2xl text-accent">「{result.dangerKeyword}」</p>
         </ResultFrame>
 
         <ResultFrame title="お告げ">
