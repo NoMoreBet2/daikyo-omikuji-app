@@ -27,7 +27,7 @@ export const metadata: Metadata = {
     siteName: '大凶おみくじ',
     images: [
       {
-        url: '/og-image.png',
+        url: '/og-image-v2.png',
         width: 1254,
         height: 1254,
         alt: '大凶おみくじ 賭内神社へようこそ',
@@ -40,7 +40,7 @@ export const metadata: Metadata = {
     card: 'summary_large_image',
     title: '大凶おみくじ | 今日だけ行かない理由を作る',
     description: '悪い結果しか出ない、ギャンブル回避おみくじ。今日だけ行かない理由を、運勢のせいにしよう。',
-    images: ['/og-image.png'],
+    images: ['/og-image-v2.png'],
   },
   icons: {
     icon: [
