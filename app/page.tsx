@@ -30,14 +30,15 @@ interface DrawResult {
   fortune: FortuneResult
   level: FortuneLevel
   lossAmount: number
+  purchaseItemName: string
   dangerKeyword: string
   oracle: string
   luckyItem: string
 }
 
-interface PurchaseExample {
-  name: string
-  price: number
+interface PurchaseExampleGroup {
+  maxAmount: number
+  items: string[]
 }
 
 const yenFormatter = new Intl.NumberFormat("ja-JP", {
@@ -46,19 +47,91 @@ const yenFormatter = new Intl.NumberFormat("ja-JP", {
   maximumFractionDigits: 0,
 })
 
-const purchaseExamples: PurchaseExample[] = [
-  { name: "ちょっといいランチ", price: 1000 },
-  { name: "映画チケット", price: 2000 },
-  { name: "日帰り温泉", price: 3000 },
-  { name: "一週間分の食材", price: 7000 },
-  { name: "スニーカー", price: 12000 },
-  { name: "ワイヤレスイヤホン", price: 18000 },
-  { name: "家電の買い替え資金", price: 30000 },
-  { name: "国内小旅行", price: 50000 },
-  { name: "韓国旅行", price: 80000 },
-  { name: "新しいスマホ", price: 120000 },
-  { name: "高性能ノートPC", price: 180000 },
-  { name: "海外旅行", price: 300000 },
+const purchaseExampleGroups: PurchaseExampleGroup[] = [
+  {
+    maxAmount: 500,
+    items: ["コンビニスイーツ", "缶コーヒー数本", "アイスクリーム", "子どものお菓子", "ハンバーガーセット", "ノート", "ボールペン"],
+  },
+  {
+    maxAmount: 1000,
+    items: ["牛丼", "ラーメン", "本1冊", "子どものおもちゃ", "お弁当", "入浴剤セット", "花束"],
+  },
+  {
+    maxAmount: 2000,
+    items: ["映画鑑賞", "ピザ", "回転寿司", "絵本", "カフェランチ", "日帰り温泉", "Tシャツ"],
+  },
+  {
+    maxAmount: 3000,
+    items: ["家族で回転寿司", "焼肉ランチ", "動物園", "水族館", "子どもの運動靴", "高級スイーツ", "ビジネス書数冊", "ボードゲーム", "観葉植物", "日帰り温泉入浴券"],
+  },
+  {
+    maxAmount: 5000,
+    items: ["焼肉ランチ", "水族館入場券", "動物園入場券", "ボードゲーム", "子どもの絵本セット", "高級スイーツ", "カフェ巡り", "ビジネス書セット", "旅行ガイドブック", "スマホアクセサリー"],
+  },
+  {
+    maxAmount: 10000,
+    items: ["家族で外食", "高級焼肉", "テーマパーク入場券", "美容院", "スニーカー", "リュック", "ワイヤレスイヤホン", "ブランド財布", "家族写真撮影", "日帰り旅行"],
+  },
+  {
+    maxAmount: 30000,
+    items: ["子ども用自転車", "Nintendo Switch", "高級炊飯器", "スーツ", "テレビゲーム機", "温泉旅行", "掃除機", "ホテル宿泊", "ブランドバッグ", "学習教材"],
+  },
+  {
+    maxAmount: 50000,
+    items: ["電動キックボード", "iPad", "Apple Watch", "テーマパーク旅行", "高級ホテル宿泊", "家族旅行", "ゴルフクラブ", "高級炊飯器", "デスクチェア", "スマートフォン"],
+  },
+  {
+    maxAmount: 80000,
+    items: ["最新スマートフォン", "ノートパソコン", "冷蔵庫", "洗濯機", "電動アシスト自転車の頭金", "高級旅館宿泊", "ゲーミングモニター", "テレビ", "ソファ", "学習机"],
+  },
+  {
+    maxAmount: 100000,
+    items: ["iPhone Pro", "ドラム式洗濯乾燥機の頭金", "沖縄旅行", "家族旅行", "高級腕時計", "エアコン", "電動アシスト自転車", "ノートパソコン", "カメラ", "ベビーカー一式"],
+  },
+  {
+    maxAmount: 150000,
+    items: ["電動アシスト自転車", "ドラム式洗濯乾燥機", "最新ノートパソコン", "家族で温泉旅行", "大型テレビ", "冷蔵庫", "エアコン買い替え", "高級旅館宿泊", "学習机一式", "入学準備一式"],
+  },
+  {
+    maxAmount: 200000,
+    items: ["ドラム式洗濯乾燥機", "沖縄旅行", "海外旅行", "大型冷蔵庫", "ハイエンドPC", "電動自転車", "ブランド腕時計", "カメラ機材", "ソファセット", "ベッド"],
+  },
+  {
+    maxAmount: 250000,
+    items: ["家族で沖縄旅行", "ドラム式洗濯乾燥機", "MacBook Air", "大型テレビ", "冷蔵庫", "ベッド一式", "電動アシスト自転車", "リフォーム資金", "高級ソファ", "学習環境一式"],
+  },
+  {
+    maxAmount: 300000,
+    items: ["家族で沖縄旅行", "MacBook Pro", "冷蔵庫＋洗濯機", "ハイエンドPC", "電動自転車", "高級旅館宿泊", "海外旅行", "ソファセット", "ダイニングセット", "子どもの教育資金"],
+  },
+  {
+    maxAmount: 400000,
+    items: ["家族で海外旅行", "軽自動車の頭金", "ハイエンドPC", "MacBook Pro", "大型テレビ", "高級カメラ", "リフォーム資金", "家具一式", "家電一式", "学費積立"],
+  },
+  {
+    maxAmount: 500000,
+    items: ["家族で海外旅行", "軽自動車の頭金", "結婚指輪", "ハイエンドPC環境", "バイク", "大型家電一式", "リフォーム", "教育資金", "家具買い替え", "投資資金"],
+  },
+  {
+    maxAmount: 600000,
+    items: ["軽自動車の頭金", "新婚旅行", "家族で海外旅行", "バイク", "リフォーム", "家電総入れ替え", "高級時計", "教育資金", "投資資金", "住宅設備"],
+  },
+  {
+    maxAmount: 700000,
+    items: ["軽自動車の頭金", "海外旅行", "リフォーム", "バイク", "学費", "家具家電一式", "高級腕時計", "投資資金", "結婚式費用の一部", "住宅資金"],
+  },
+  {
+    maxAmount: 800000,
+    items: ["軽自動車の購入資金", "家族で海外旅行", "学費", "リフォーム", "バイク", "家具家電一式", "結婚式資金", "住宅頭金", "投資資金", "教育資金"],
+  },
+  {
+    maxAmount: 900000,
+    items: ["軽自動車", "家族で海外旅行", "結婚式資金", "リフォーム", "学費", "家具家電一式", "住宅頭金", "バイク", "投資資金", "教育資金"],
+  },
+  {
+    maxAmount: 1000000,
+    items: ["軽自動車", "普通車の頭金", "家族でハワイ旅行", "結婚式費用", "マイホーム頭金", "子どもの大学資金", "リフォーム", "投資資金", "教育資金", "老後資金"],
+  },
 ]
 
 function pickRandom<T>(items: T[]): T {
@@ -91,12 +164,12 @@ function roundUpToHundred(amount: number): number {
   return Math.ceil(amount / 100) * 100
 }
 
-function getPurchaseExample(lossAmount: number) {
-  const affordable = purchaseExamples.filter((item) => item.price <= lossAmount)
+function getPurchaseExample(lossAmount: number): string {
+  const group =
+    purchaseExampleGroups.find((exampleGroup) => lossAmount <= exampleGroup.maxAmount) ??
+    purchaseExampleGroups[purchaseExampleGroups.length - 1]
 
-  return affordable[affordable.length - 1] ?? {
-    ...purchaseExamples[0],
-  }
+  return pickRandom(group.items)
 }
 
 function generateBoxMessages(box: OmikujiBox, fortune: FortuneResult) {
@@ -121,6 +194,7 @@ function drawResult(box: OmikujiBox): DrawResult {
     fortune,
     level,
     lossAmount,
+    purchaseItemName: getPurchaseExample(lossAmount),
     ...messages,
   }
 }
@@ -150,12 +224,11 @@ async function generateAiMessages(box: OmikujiBox, result: DrawResult) {
 
 function getShareText(result: DrawResult, selectedBox: OmikujiBox | null): string {
   const boxText = selectedBox ? `\n箱：${selectedBox.name}` : ""
-  const purchaseItem = getPurchaseExample(result.lossAmount)
 
   return `【${result.fortune.title}】${boxText}
 レベル：${result.level}
 本日の想定負け金額：${yenFormatter.format(result.lossAmount)}
-買えたもの：${purchaseItem.name}
+買えたもの：${result.purchaseItemName}
 ラッキーアイテム：${result.luckyItem}
 
 ${result.fortune.description}
@@ -396,7 +469,6 @@ function ResultPage({
 }) {
   const fortune = result.fortune
   const levelImageUrl = `/omikuji/frames/img_level${result.level}.png`
-  const purchaseItem = getPurchaseExample(result.lossAmount)
 
   return (
     <motion.div
@@ -442,7 +514,7 @@ function ResultPage({
               </div>
               <div className="space-y-1">
                 <p className="text-xs text-primary tracking-widest font-medium">この金額で買えたもの</p>
-                <p className="font-serif text-2xl text-foreground">{purchaseItem.name}</p>
+                <p className="font-serif text-2xl text-foreground">{result.purchaseItemName}</p>
               </div>
             </div>
           </ResultFrame>
