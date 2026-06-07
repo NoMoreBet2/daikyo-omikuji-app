@@ -560,15 +560,9 @@ function DrawingPage({ box, effect }: { box: OmikujiBox | null; effect: DrawEffe
       <div className="absolute inset-0 bg-background/55" />
       <div className="absolute inset-0 bg-[radial-gradient(circle_at_center,transparent_0%,oklch(0.04_0.02_285_/_0.82)_72%)]" />
       <div
-        className="absolute left-1/2 top-[18%] h-[52%] w-24 -translate-x-1/2 animate-pulse blur-2xl"
+        className="absolute left-1/2 top-[18%] h-[52%] w-28 -translate-x-1/2 animate-pulse blur-2xl"
         style={{
           background: `linear-gradient(to bottom, rgba(${beamColor},0), rgba(${beamColor},0.75), rgba(${beamColor},0))`,
-        }}
-      />
-      <div
-        className="absolute left-1/2 top-[18%] h-[56%] w-px -translate-x-1/2"
-        style={{
-          boxShadow: `0 0 70px 28px ${glowColor}`,
         }}
       />
 
@@ -584,7 +578,7 @@ function DrawingPage({ box, effect }: { box: OmikujiBox | null; effect: DrawEffe
           initial={{ opacity: 0, y: 28, scale: 0.92 }}
           animate={{ opacity: 1, y: 0, scale: 1 }}
           transition={{ duration: 0.7, ease: "easeOut" }}
-          className="absolute left-1/2 top-[10%] -translate-x-1/2 [writing-mode:vertical-rl] font-serif text-5xl font-bold tracking-[0.14em]"
+          className="absolute left-1/2 top-[10%] z-30 -translate-x-1/2 [writing-mode:vertical-rl] font-serif text-5xl font-bold tracking-[0.14em]"
           style={{
             color: effect.tone === "red" ? "#ff4c4c" : "#d487ff",
             textShadow: `0 0 18px ${glowColor}, 0 0 42px ${glowColor}`,
@@ -593,7 +587,7 @@ function DrawingPage({ box, effect }: { box: OmikujiBox | null; effect: DrawEffe
           {effect.mainText}
         </motion.div>
 
-        <div className="relative w-full max-w-sm">
+        <div className="relative z-10 w-full max-w-sm">
           <div className="absolute left-1/2 top-5 h-14 w-36 -translate-x-1/2 rounded-full bg-black/85 blur-md" />
           {box && (
             <img
