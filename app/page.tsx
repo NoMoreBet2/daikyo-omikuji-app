@@ -92,7 +92,7 @@ function roundUpToHundred(amount: number): number {
   return Math.ceil(amount / 100) * 100
 }
 
-function getPurchaseExamples(lossAmount: number) {
+function getPurchaseExample(lossAmount: number) {
   const affordable = purchaseExamples
     .filter((item) => item.price <= lossAmount)
     .map((item) => ({
@@ -100,13 +100,10 @@ function getPurchaseExamples(lossAmount: number) {
       quantity: Math.max(1, Math.floor(lossAmount / item.price)),
     }))
 
-  if (affordable.length <= 3) return affordable
-
-  const first = affordable[0]
-  const middle = affordable[Math.floor(affordable.length / 2)]
-  const last = affordable[affordable.length - 1]
-
-  return [first, middle, last]
+  return affordable[affordable.length - 1] ?? {
+    ...purchaseExamples[0],
+    quantity: 1,
+  }
 }
 
 function generateBoxMessages(box: OmikujiBox, fortune: FortuneResult) {
@@ -160,14 +157,12 @@ async function generateAiMessages(box: OmikujiBox, result: DrawResult) {
 
 function getShareText(result: DrawResult, selectedBox: OmikujiBox | null): string {
   const boxText = selectedBox ? `\n箱：${selectedBox.name}` : ""
-  const purchaseText = getPurchaseExamples(result.lossAmount)
-    .map((item) => `${item.name} 約${item.quantity}${item.unit}分`)
-    .join(" / ")
+  const purchaseItem = getPurchaseExample(result.lossAmount)
 
   return `【${result.fortune.title}】${boxText}
 レベル：${result.level}
 本日の想定負け金額：${yenFormatter.format(result.lossAmount)}
-買えたもの：${purchaseText}
+買えたもの：${purchaseItem.name} 約${purchaseItem.quantity}${purchaseItem.unit}分
 危険キーワード：${result.dangerKeyword}
 ラッキーアイテム：${result.luckyItem}
 
@@ -409,7 +404,7 @@ function ResultPage({
 }) {
   const fortune = result.fortune
   const levelImageUrl = `/omikuji/frames/img_level${result.level}.png`
-  const purchaseItems = getPurchaseExamples(result.lossAmount)
+  const purchaseItem = getPurchaseExample(result.lossAmount)
 
   return (
     <motion.div
@@ -451,16 +446,13 @@ function ResultPage({
         </ResultFrame>
 
         <ResultFrame title="この金額で買えたもの">
-          <div className="space-y-2">
-            {purchaseItems.map((item) => (
-              <div key={item.name} className="flex items-baseline justify-between gap-3 border-b border-primary/15 pb-2 last:border-b-0 last:pb-0">
-                <p className="text-sm text-foreground">{item.name}</p>
-                <p className="shrink-0 font-serif text-xl text-accent">
-                  約{item.quantity}
-                  {item.unit}分
-                </p>
-              </div>
-            ))}
+          <div className="space-y-1">
+            <p className="text-sm text-muted-foreground">たとえば</p>
+            <p className="font-serif text-2xl text-foreground">{purchaseItem.name}</p>
+            <p className="font-serif text-3xl text-accent">
+              約{purchaseItem.quantity}
+              {purchaseItem.unit}分
+            </p>
           </div>
           <p className="text-xs text-muted-foreground">※金額は目安です。</p>
         </ResultFrame>
