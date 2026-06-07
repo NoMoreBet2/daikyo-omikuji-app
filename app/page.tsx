@@ -405,11 +405,11 @@ function ResultPage({
       animate="animate"
       exit="exit"
       transition={{ duration: 0.4 }}
-      className="flex-1 flex flex-col items-center px-4 py-7 overflow-y-auto"
+      className="flex-1 flex flex-col items-center py-7 overflow-y-auto"
     >
-      <div className="max-w-md w-full space-y-5">
+      <div className="w-full space-y-5">
         <div
-          className="relative min-h-[360px] overflow-hidden px-7 py-8"
+          className="relative min-h-[360px] w-full overflow-hidden px-7 py-8"
           style={{
             backgroundImage: "url('/omikuji/frames/img_frame_kuji.png')",
             backgroundPosition: "center",
@@ -424,61 +424,63 @@ function ResultPage({
           />
         </div>
 
-        <ResultFrame title="おみくじ説明">
-          <div className="space-y-4">
-            <div className="space-y-2">
-              <p className="font-serif text-xl text-accent">大凶レベル{result.level}</p>
-              <img src={levelImageUrl} alt={`大凶レベル${result.level}`} className="h-7 w-auto" />
+        <div className="mx-auto w-full max-w-md space-y-5 px-4">
+          <ResultFrame title="おみくじ説明">
+            <div className="space-y-4">
+              <div className="space-y-2">
+                <p className="font-serif text-xl text-accent">大凶レベル{result.level}</p>
+                <img src={levelImageUrl} alt={`大凶レベル${result.level}`} className="h-7 w-auto" />
+              </div>
+              <p className="text-foreground leading-relaxed">{fortune.description}</p>
             </div>
-            <p className="text-foreground leading-relaxed">{fortune.description}</p>
-          </div>
-        </ResultFrame>
+          </ResultFrame>
 
-        <ResultFrame title="本日の想定負け金額">
-          <div className="space-y-5">
-            <div className="space-y-1">
-              <p className="font-serif text-2xl text-accent">{yenFormatter.format(result.lossAmount)}</p>
+          <ResultFrame title="本日の想定負け金額">
+            <div className="space-y-5">
+              <div className="space-y-1">
+                <p className="font-serif text-2xl text-accent">{yenFormatter.format(result.lossAmount)}</p>
+              </div>
+              <div className="space-y-1">
+                <p className="text-xs text-primary tracking-widest font-medium">この金額で買えたもの</p>
+                <p className="font-serif text-2xl text-foreground">{purchaseItem.name}</p>
+              </div>
             </div>
-            <div className="space-y-1">
-              <p className="text-xs text-primary tracking-widest font-medium">この金額で買えたもの</p>
-              <p className="font-serif text-2xl text-foreground">{purchaseItem.name}</p>
-            </div>
-          </div>
-        </ResultFrame>
+          </ResultFrame>
 
-        <ResultFrame title="お告げ">
-          <p className="text-foreground leading-relaxed">{result.oracle}</p>
-        </ResultFrame>
+          <ResultFrame title="お告げ">
+            <p className="text-foreground leading-relaxed">{result.oracle}</p>
+          </ResultFrame>
 
-        <ResultFrame title="今日のラッキーアイテム">
-          <p className="font-serif text-2xl text-foreground">{result.luckyItem}</p>
-        </ResultFrame>
+          <ResultFrame title="今日のラッキーアイテム">
+            <p className="font-serif text-2xl text-foreground">{result.luckyItem}</p>
+          </ResultFrame>
 
-        <div className="space-y-4 pt-4">
-          <Button
-            onClick={onRetry}
-            variant="outline"
-            size="lg"
-            className="w-full h-14 text-lg font-medium border-2 border-border hover:bg-secondary/50 rounded-lg"
-          >
-            別の箱を選ぶ
-          </Button>
-
-          <div className="flex gap-3">
+          <div className="space-y-4 pt-4">
             <Button
+              onClick={onRetry}
               variant="outline"
-              className="flex-1 h-12 border-green-600/50 text-green-500 hover:bg-green-600/10 hover:text-green-400 rounded-lg"
-              onClick={() => window.open(getLineShareUrl(result, selectedBox), "_blank")}
+              size="lg"
+              className="w-full h-14 text-lg font-medium border-2 border-border hover:bg-secondary/50 rounded-lg"
             >
-              LINEで送る
+              別の箱を選ぶ
             </Button>
-            <Button
-              variant="outline"
-              className="flex-1 h-12 border-sky-500/50 text-sky-400 hover:bg-sky-500/10 hover:text-sky-300 rounded-lg"
-              onClick={() => window.open(getTwitterShareUrl(result, selectedBox), "_blank")}
-            >
-              Xでシェア
-            </Button>
+
+            <div className="flex gap-3">
+              <Button
+                variant="outline"
+                className="flex-1 h-12 border-green-600/50 text-green-500 hover:bg-green-600/10 hover:text-green-400 rounded-lg"
+                onClick={() => window.open(getLineShareUrl(result, selectedBox), "_blank")}
+              >
+                LINEで送る
+              </Button>
+              <Button
+                variant="outline"
+                className="flex-1 h-12 border-sky-500/50 text-sky-400 hover:bg-sky-500/10 hover:text-sky-300 rounded-lg"
+                onClick={() => window.open(getTwitterShareUrl(result, selectedBox), "_blank")}
+              >
+                Xでシェア
+              </Button>
+            </div>
           </div>
         </div>
       </div>
