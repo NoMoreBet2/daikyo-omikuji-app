@@ -1,5 +1,6 @@
 "use client"
 
+import type { ReactNode } from "react"
 import { useState } from "react"
 import { motion, AnimatePresence } from "framer-motion"
 import { Loader2 } from "lucide-react"
@@ -183,6 +184,33 @@ function Decorations() {
   )
 }
 
+function ResultFrame({
+  title,
+  children,
+  className = "",
+}: {
+  title: string
+  children: ReactNode
+  className?: string
+}) {
+  return (
+    <section
+      className={`relative overflow-hidden px-5 py-5 ${className}`}
+      style={{
+        backgroundImage: "url('/omikuji/frames/img_frame.png')",
+        backgroundPosition: "center",
+        backgroundRepeat: "no-repeat",
+        backgroundSize: "100% 100%",
+      }}
+    >
+      <div className="relative z-10 space-y-3">
+        <p className="text-xs text-primary tracking-widest font-medium">{title}</p>
+        {children}
+      </div>
+    </section>
+  )
+}
+
 const pageVariants = {
   initial: { opacity: 1, y: 0 },
   animate: { opacity: 1, y: 0 },
@@ -337,6 +365,7 @@ function ResultPage({
   onRetry: () => void
 }) {
   const fortune = result.fortune
+  const levelImageUrl = `/omikuji/frames/img_level${result.level}.png`
 
   return (
     <motion.div
@@ -345,54 +374,49 @@ function ResultPage({
       animate="animate"
       exit="exit"
       transition={{ duration: 0.4 }}
-      className="flex-1 flex flex-col items-center px-4 py-8 overflow-y-auto"
+      className="flex-1 flex flex-col items-center px-4 py-7 overflow-y-auto"
     >
-      <div className="max-w-md w-full space-y-6">
-        <div className="text-center space-y-2">
-          <p className="text-sm text-muted-foreground tracking-widest">本日のギャンブル運</p>
-          <h2 className="font-serif text-4xl font-bold text-accent tracking-wider">{fortune.title}</h2>
-          {selectedBox && <p className="text-xs text-muted-foreground">{selectedBox.name}から授かりました</p>}
-        </div>
-
-        <div className="relative overflow-hidden rounded-lg border border-primary/30 bg-secondary/30 px-6 py-5">
-          <div className="absolute inset-0 bg-[radial-gradient(circle_at_center,oklch(0.75_0.15_60_/_0.16),transparent_62%)]" />
+      <div className="max-w-md w-full space-y-5">
+        <div
+          className="relative min-h-[360px] overflow-hidden px-7 py-8"
+          style={{
+            backgroundImage: "url('/omikuji/frames/img_frame_kuji.png')",
+            backgroundPosition: "center",
+            backgroundRepeat: "no-repeat",
+            backgroundSize: "100% 100%",
+          }}
+        >
           <img
             src={fortune.imageUrl}
             alt={`${fortune.title}のおみくじ画像`}
-            className="relative mx-auto aspect-square w-full max-w-[320px] object-contain drop-shadow-[0_20px_35px_rgba(0,0,0,0.55)]"
+            className="relative z-10 mx-auto aspect-square w-full max-w-[290px] object-contain drop-shadow-[0_20px_35px_rgba(0,0,0,0.55)]"
           />
         </div>
 
         <div className="grid grid-cols-2 gap-3">
-          <div className="rounded-lg border border-primary/25 bg-card/85 p-4">
-            <p className="text-xs text-primary tracking-widest font-medium">おみくじレベル</p>
-            <p className="mt-2 font-serif text-3xl text-accent">レベル{result.level}</p>
-          </div>
-          <div className="rounded-lg border border-primary/25 bg-card/85 p-4">
-            <p className="text-xs text-primary tracking-widest font-medium">本日の想定負け金額</p>
-            <p className="mt-2 font-serif text-2xl text-accent">{yenFormatter.format(result.lossAmount)}</p>
-          </div>
+          <ResultFrame title="大凶レベル" className="min-h-[100px]">
+            <img src={levelImageUrl} alt={`大凶レベル${result.level}`} className="h-7 w-auto" />
+          </ResultFrame>
+          <ResultFrame title="本日の想定負け金額" className="min-h-[100px]">
+            <p className="font-serif text-2xl text-accent">{yenFormatter.format(result.lossAmount)}</p>
+          </ResultFrame>
         </div>
 
-        <div className="bg-card border border-border rounded-lg p-5 space-y-3">
-          <p className="text-xs text-primary tracking-widest font-medium">おみくじ説明</p>
+        <ResultFrame title="おみくじ説明">
           <p className="text-foreground leading-relaxed">{fortune.description}</p>
-        </div>
+        </ResultFrame>
 
-        <div className="bg-card border border-border rounded-lg p-5 space-y-3">
-          <p className="text-xs text-primary tracking-widest font-medium">今日の危険キーワード</p>
+        <ResultFrame title="今日の危険キーワード">
           <p className="font-serif text-2xl text-accent">「{result.dangerKeyword}」</p>
-        </div>
+        </ResultFrame>
 
-        <div className="bg-secondary/50 rounded-lg p-5 border-l-4 border-primary space-y-3">
-          <p className="text-xs text-primary tracking-widest font-medium">お告げ</p>
+        <ResultFrame title="お告げ">
           <p className="text-foreground leading-relaxed">{result.oracle}</p>
-        </div>
+        </ResultFrame>
 
-        <div className="bg-card border border-border rounded-lg p-5 space-y-3">
-          <p className="text-xs text-primary tracking-widest font-medium">今日のラッキーアイテム</p>
+        <ResultFrame title="今日のラッキーアイテム">
           <p className="font-serif text-2xl text-foreground">{result.luckyItem}</p>
-        </div>
+        </ResultFrame>
 
         <div className="space-y-4 pt-4">
           <Button
@@ -466,7 +490,7 @@ export default function Home() {
   return (
     <main className="relative min-h-screen flex flex-col">
       <SmokeBackground />
-      <Decorations />
+      {step !== "result" && <Decorations />}
 
       <div className="relative z-10 flex-1 flex flex-col">
         <AnimatePresence mode="wait">
