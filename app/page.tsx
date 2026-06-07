@@ -424,11 +424,11 @@ function ResultPage({
           />
         </div>
 
-        <ResultFrame title="大凶レベル + おみくじ説明">
+        <ResultFrame title="おみくじ説明">
           <div className="space-y-4">
-            <div className="flex items-center gap-3">
+            <div className="space-y-2">
+              <p className="font-serif text-xl text-accent">大凶レベル{result.level}</p>
               <img src={levelImageUrl} alt={`大凶レベル${result.level}`} className="h-7 w-auto" />
-              <p className="font-serif text-xl text-accent">レベル{result.level}</p>
             </div>
             <p className="text-foreground leading-relaxed">{fortune.description}</p>
           </div>
