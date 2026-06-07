@@ -2,76 +2,150 @@
 
 import { useState } from "react"
 import { motion, AnimatePresence } from "framer-motion"
-import { Button } from "@/components/ui/button"
 import { Loader2 } from "lucide-react"
 
-// ステップ型
+import { Button } from "@/components/ui/button"
+import {
+  Carousel,
+  CarouselContent,
+  CarouselItem,
+  CarouselNext,
+  CarouselPrevious,
+} from "@/components/ui/carousel"
+import {
+  boxTextSeeds,
+  fortuneResults,
+  levelMultipliers,
+  levelWeights,
+  omikujiBoxes,
+  type FortuneLevel,
+  type FortuneResult,
+  type OmikujiBox,
+} from "@/lib/omikuji-data"
+
 type Step = "welcome" | "select" | "result"
 
-// 結果データ型
-interface FortuneResult {
-  id: string
-  name: string
-  dangerWord: string
+interface DrawResult {
+  fortune: FortuneResult
+  level: FortuneLevel
+  lossAmount: number
+  dangerKeyword: string
   oracle: string
-  avoidanceAction: string
-  imageUrl: string
+  luckyItem: string
 }
 
-// 3種類の結果データ
-const fortuneResults: FortuneResult[] = [
-  {
-    id: "daikyo",
-    name: "大凶",
-    dangerWord: "少しだけ",
-    oracle: "",
-    avoidanceAction: "帰り道を一本変えて、パチンコ屋の前を通らない。",
-    imageUrl: "/images/daikyo.jpg",
-  },
-  {
-    id: "chokyo",
-    name: "超凶",
-    dangerWord: "給料日",
-    oracle: "",
-    avoidanceAction: "現金を持ち歩かず、必要な用事だけ済ませて帰る。",
-    imageUrl: "/images/chokyo.jpg",
-  },
-  {
-    id: "gokukyo",
-    name: "極凶",
-    dangerWord: "取り返す",
-    oracle: "",
-    avoidanceAction: "パチンコ屋に近づかず、まっすぐ帰る。",
-    imageUrl: "/images/gokukyo.jpg",
-  },
-]
+const yenFormatter = new Intl.NumberFormat("ja-JP", {
+  style: "currency",
+  currency: "JPY",
+  maximumFractionDigits: 0,
+})
 
-// フォールバックのお告げ
-const FALLBACK_ORACLE = "今日は近づかない日。行かないだけで、今日の勝ちは守れます。"
-
-// ランダムに結果を選択
-function getRandomFortune(): FortuneResult {
-  const index = Math.floor(Math.random() * fortuneResults.length)
-  return fortuneResults[index]
+function pickRandom<T>(items: T[]): T {
+  return items[Math.floor(Math.random() * items.length)]
 }
 
-// シェアURL生成
-function getShareText(result: FortuneResult, oracle: string): string {
-  return `【${result.name}】今日の危険ワード「${result.dangerWord}」\n\n${oracle}\n\n#大凶おみくじ #ギャンブル回避`
+function drawFortuneLevel(): FortuneLevel {
+  const entries = Object.entries(levelWeights) as [string, number][]
+  const totalWeight = entries.reduce((total, [, weight]) => total + weight, 0)
+  let cursor = Math.random() * totalWeight
+
+  for (const [level, weight] of entries) {
+    cursor -= weight
+    if (cursor < 0) return Number(level) as FortuneLevel
+  }
+
+  return 1
 }
 
-function getTwitterShareUrl(result: FortuneResult, oracle: string): string {
-  const text = encodeURIComponent(getShareText(result, oracle))
+function drawFortuneByLevel(level: FortuneLevel): FortuneResult {
+  const candidates = fortuneResults.filter((fortune) => fortune.level === level)
+  return pickRandom(candidates.length > 0 ? candidates : fortuneResults)
+}
+
+function getRandomLossMultiplier(): number {
+  return (Math.floor(Math.random() * 10) + 1) / 10
+}
+
+function roundUpToHundred(amount: number): number {
+  return Math.ceil(amount / 100) * 100
+}
+
+function generateBoxMessages(box: OmikujiBox, fortune: FortuneResult) {
+  const seed = boxTextSeeds[box.key]
+  const dangerKeyword = pickRandom(seed.dangerKeywords)
+  const oracleHint = pickRandom(seed.oracleHints)
+
+  return {
+    dangerKeyword,
+    oracle: `${box.shortName}の気配が強い日です。「${dangerKeyword}」という言葉が頭に浮かんだら、${fortune.title}が近くにいます。${oracleHint}`,
+    luckyItem: pickRandom(seed.luckyItems),
+  }
+}
+
+function drawResult(box: OmikujiBox): DrawResult {
+  const level = drawFortuneLevel()
+  const fortune = drawFortuneByLevel(level)
+  const lossAmount = roundUpToHundred(box.baseLossAmount * levelMultipliers[level] * getRandomLossMultiplier())
+  const messages = generateBoxMessages(box, fortune)
+
+  return {
+    fortune,
+    level,
+    lossAmount,
+    ...messages,
+  }
+}
+
+async function generateAiMessages(box: OmikujiBox, result: DrawResult) {
+  const response = await fetch("/api/ai-omikuji", {
+    method: "POST",
+    headers: {
+      "Content-Type": "application/json",
+    },
+    body: JSON.stringify({
+      boxName: box.name,
+      boxShortName: box.shortName,
+      fortuneTitle: result.fortune.title,
+      fortuneDescription: result.fortune.description,
+      fortuneLevel: result.level,
+      lossAmount: result.lossAmount,
+    }),
+  })
+
+  if (!response.ok) {
+    throw new Error("AI message generation failed")
+  }
+
+  return (await response.json()) as Pick<DrawResult, "dangerKeyword" | "oracle" | "luckyItem">
+}
+
+function getShareText(result: DrawResult, selectedBox: OmikujiBox | null): string {
+  const boxText = selectedBox ? `\n箱：${selectedBox.name}` : ""
+  return `【${result.fortune.title}】${boxText}
+レベル：${result.level}
+本日の想定負け金額：${yenFormatter.format(result.lossAmount)}
+危険キーワード：${result.dangerKeyword}
+ラッキーアイテム：${result.luckyItem}
+
+${result.fortune.description}
+
+${result.oracle}
+
+#大凶おみくじ #ギャンブル回避`
+}
+
+function getTwitterShareUrl(result: DrawResult, selectedBox: OmikujiBox | null): string {
+  const text = encodeURIComponent(getShareText(result, selectedBox))
   const url = encodeURIComponent(typeof window !== "undefined" ? window.location.href : "")
   return `https://twitter.com/intent/tweet?text=${text}&url=${url}`
 }
 
-function getLineShareUrl(): string {
-  const url = encodeURIComponent(typeof window !== "undefined" ? window.location.href : "")
-  return `https://social-plugins.line.me/lineit/share?url=${url}`
+function getLineShareUrl(result: DrawResult, selectedBox: OmikujiBox | null): string {
+  const url = typeof window !== "undefined" ? window.location.href : ""
+  const text = encodeURIComponent(`${getShareText(result, selectedBox)}\n${url}`)
+  return `https://line.me/R/msg/text/?${text}`
 }
 
-// 背景の煙エフェクトコンポーネント
 function SmokeBackground() {
   return (
     <div className="fixed inset-0 overflow-hidden pointer-events-none">
@@ -100,26 +174,21 @@ function SmokeBackground() {
   )
 }
 
-// 装飾要素コンポーネント
 function Decorations() {
   return (
     <>
       <div className="fixed top-4 left-4 w-12 h-12 border-l-2 border-t-2 border-primary opacity-60" />
       <div className="fixed top-4 right-4 w-12 h-12 border-r-2 border-t-2 border-primary opacity-60" />
-      <div className="fixed bottom-4 left-4 w-12 h-12 border-l-2 border-b-2 border-primary opacity-60" />
-      <div className="fixed bottom-4 right-4 w-12 h-12 border-r-2 border-b-2 border-primary opacity-60" />
     </>
   )
 }
 
-// ページ遷移アニメーション用wrapper
 const pageVariants = {
-  initial: { opacity: 0, y: 20 },
+  initial: { opacity: 1, y: 0 },
   animate: { opacity: 1, y: 0 },
-  exit: { opacity: 0, y: -20 },
+  exit: { opacity: 0.96, y: -8 },
 }
 
-// 1. ようこそページ
 function WelcomePage({ onStart }: { onStart: () => void }) {
   return (
     <motion.div
@@ -128,81 +197,49 @@ function WelcomePage({ onStart }: { onStart: () => void }) {
       animate="animate"
       exit="exit"
       transition={{ duration: 0.4 }}
-      className="flex-1 flex flex-col items-center justify-center px-6 py-12"
+      className="relative flex-1 flex flex-col items-center justify-end overflow-hidden px-6 pb-16 pt-24"
+      style={{
+        backgroundImage: "url('/welcome-top.png')",
+        backgroundPosition: "center top",
+        backgroundSize: "cover",
+      }}
     >
-      <div className="max-w-sm w-full space-y-8 text-center">
-        {/* 神社風の鳥居アイコン */}
-        <div className="inline-block">
-          <div className="relative">
-            <div className="absolute -inset-4 bg-accent/20 rounded-full blur-xl" />
-            <div className="relative w-24 h-24 mx-auto flex items-center justify-center">
-              <svg viewBox="0 0 100 100" className="w-full h-full text-accent">
-                <path
-                  d="M10 35 L10 30 L90 30 L90 35 L80 35 L80 90 L70 90 L70 35 L30 35 L30 90 L20 90 L20 35 Z"
-                  fill="currentColor"
-                />
-                <path d="M5 25 L95 25 L93 30 L7 30 Z" fill="currentColor" />
-                <path d="M0 20 L100 20 L98 25 L2 25 Z" fill="currentColor" />
-                <path d="M35 45 L65 45 L65 50 L35 50 Z" fill="currentColor" opacity="0.7" />
-              </svg>
-            </div>
-          </div>
-        </div>
+      <div className="absolute inset-0 bg-gradient-to-b from-background/0 via-background/10 to-background/80" />
+      <div className="absolute inset-0 bg-[radial-gradient(circle_at_center,transparent_0%,oklch(0.08_0.02_285_/_0.22)_82%)]" />
 
-        {/* タイトル */}
-        <div className="space-y-3">
-          <h1 className="font-serif text-3xl md:text-4xl font-bold tracking-wider text-foreground">
-            賭内神社へようこそ
-          </h1>
-          <p className="text-lg text-foreground/90 leading-relaxed text-balance">
-            今日だけ行かない理由を、
-            <br />
-            運勢のせいにしよう。
-          </p>
-        </div>
-
-        {/* ヒーロー画像エリア */}
-        <div className="relative aspect-[4/3] bg-secondary/30 rounded-xl overflow-hidden border border-border">
-          <div className="absolute inset-0 flex items-center justify-center">
-            <div className="text-center space-y-3">
-              <div className="w-20 h-20 mx-auto rounded-full bg-accent/10 border-2 border-accent/30 flex items-center justify-center">
-                <span className="font-serif text-4xl text-accent font-bold">凶</span>
-              </div>
-              <p className="text-sm text-muted-foreground">悪い結果しか出ない、<br />ギャンブル回避おみくじ</p>
-            </div>
-          </div>
-        </div>
-
-        {/* おみくじを引くボタン */}
-        <div className="pt-4">
-          <Button
+      <div className="relative z-10 max-w-sm w-full text-center">
+        <div className="pt-12">
+          <button
+            type="button"
             onClick={onStart}
-            size="lg"
-            className="w-full h-16 text-xl font-bold bg-primary text-primary-foreground hover:bg-primary/90 rounded-xl shadow-lg animate-pulse-glow transition-all duration-300 hover:scale-[1.02]"
+            className="group block w-full transition-transform duration-300 hover:scale-[1.015] active:scale-[0.985]"
           >
-            おみくじを引く
-          </Button>
-        </div>
-
-        {/* ラベル */}
-        <div className="flex justify-center gap-3 text-xs text-muted-foreground">
-          <span className="px-3 py-1 rounded-full bg-secondary/50 border border-border">1日1回</span>
-          <span className="px-3 py-1 rounded-full bg-secondary/50 border border-border">完全無料</span>
-          <span className="px-3 py-1 rounded-full bg-secondary/50 border border-border">ギャンブル回避</span>
+            <img
+              src="/draw-button.png"
+              alt="おみくじを引く"
+              className="w-full drop-shadow-[0_0_24px_rgba(214,158,46,0.48)] transition-[filter] duration-300 group-hover:drop-shadow-[0_0_34px_rgba(214,158,46,0.66)]"
+            />
+            <span className="sr-only">おみくじを引く</span>
+          </button>
         </div>
       </div>
     </motion.div>
   )
 }
 
-// 2. おみくじ選択ページ
 function SelectPage({
+  selectedBoxId,
   isLoading,
+  onBoxChange,
   onSelect,
 }: {
+  selectedBoxId: number
   isLoading: boolean
-  onSelect: () => void
+  onBoxChange: (boxId: number) => void
+  onSelect: (box: OmikujiBox) => void
 }) {
+  const selectedBox = omikujiBoxes.find((box) => box.id === selectedBoxId) ?? omikujiBoxes[0]
+
   return (
     <motion.div
       variants={pageVariants}
@@ -210,74 +247,97 @@ function SelectPage({
       animate="animate"
       exit="exit"
       transition={{ duration: 0.4 }}
-      className="flex-1 flex flex-col items-center justify-center px-6 py-12"
+      className="relative flex-1 flex flex-col items-center justify-center overflow-hidden px-4 py-10"
+      style={{
+        backgroundImage: "url('/select-bg.png')",
+        backgroundPosition: "center",
+        backgroundSize: "cover",
+      }}
     >
-      <div className="max-w-sm w-full space-y-8 text-center">
-        {/* タイトル */}
+      <div className="absolute inset-0 bg-background/28" />
+      <div className="absolute inset-0 bg-gradient-to-b from-background/40 via-transparent to-background/55" />
+
+      <div className="relative z-10 max-w-md w-full space-y-7 text-center">
         <div className="space-y-2">
-          <h2 className="font-serif text-2xl font-bold text-foreground">おみくじを選ぶ</h2>
-          <p className="text-muted-foreground">箱をタップして、今日の運勢を引く</p>
+          <p className="text-xs text-primary tracking-[0.3em]">OMIKUJI BOX</p>
+          <h2 className="font-serif text-3xl font-bold text-foreground">おみくじ箱を選ぶ</h2>
         </div>
 
-        {/* おみくじ箱 */}
-        <div className="pt-4">
-          {isLoading ? (
-            <div className="flex flex-col items-center justify-center space-y-4 py-12">
-              <div className="w-24 h-24 rounded-full bg-accent/10 border-2 border-accent/30 flex items-center justify-center animate-pulse">
-                <Loader2 className="w-10 h-10 text-accent animate-spin" />
-              </div>
-              <p className="text-foreground font-medium">お告げを授かっています...</p>
-              <p className="text-sm text-muted-foreground">しばらくお待ちください</p>
+        {isLoading ? (
+          <div className="flex flex-col items-center justify-center space-y-4 py-16">
+            <div className="w-24 h-24 rounded-full bg-accent/10 border-2 border-accent/30 flex items-center justify-center animate-pulse">
+              <Loader2 className="w-10 h-10 text-accent animate-spin" />
             </div>
-          ) : (
-            <button
-              onClick={onSelect}
-              className="group relative w-full aspect-square max-w-[280px] mx-auto transition-transform duration-300 hover:scale-105 active:scale-95"
+            <p className="text-foreground font-medium">大凶を授かっています...</p>
+            <p className="text-sm text-muted-foreground">選ばれた箱から、今日の一枚を引いています</p>
+          </div>
+        ) : (
+          <>
+            <Carousel
+              opts={{ align: "center", loop: true }}
+              className="mx-auto w-full max-w-md overflow-hidden"
+              setApi={(api) => {
+                if (!api) return
+                const updateSelected = () => onBoxChange(api.selectedScrollSnap() + 1)
+                updateSelected()
+                api.on("select", updateSelected)
+              }}
             >
-              {/* おみくじ箱のビジュアル */}
-              <div className="absolute inset-0 bg-gradient-to-b from-accent/20 to-accent/5 rounded-2xl border-2 border-accent/40 shadow-xl group-hover:border-accent/60 group-hover:shadow-accent/20 transition-all duration-300">
-                {/* 箱の装飾 */}
-                <div className="absolute inset-4 border border-primary/30 rounded-xl" />
-                <div className="absolute inset-8 border border-primary/20 rounded-lg" />
+              <CarouselContent className="-ml-4">
+                {omikujiBoxes.map((box) => (
+                  <CarouselItem key={box.id} className="basis-[56%] pl-4">
+                    <button
+                      type="button"
+                      onClick={() => onSelect(box)}
+                      className="group relative block w-full overflow-hidden rounded-lg bg-transparent p-0 transition-all duration-300 active:scale-[0.98]"
+                    >
+                      <img
+                        src={box.imageUrl}
+                        alt={`${box.name}の画像`}
+                        className="mx-auto aspect-square w-full object-contain drop-shadow-[0_18px_28px_rgba(0,0,0,0.55)] transition-transform duration-300 group-hover:scale-[1.03]"
+                      />
+                    </button>
+                  </CarouselItem>
+                ))}
+              </CarouselContent>
+              <CarouselPrevious className="left-2 border-primary/50 bg-background/80 text-primary hover:bg-secondary" />
+              <CarouselNext className="right-2 border-primary/50 bg-background/80 text-primary hover:bg-secondary" />
+            </Carousel>
 
-                {/* 中央のアイコン */}
-                <div className="absolute inset-0 flex items-center justify-center">
-                  <div className="text-center space-y-3">
-                    <div className="w-20 h-20 mx-auto rounded-full bg-background/80 border-2 border-accent flex items-center justify-center group-hover:bg-accent/20 transition-colors">
-                      <span className="font-serif text-4xl text-accent font-bold">籤</span>
-                    </div>
-                    <p className="text-sm text-foreground/80 font-medium">タップして引く</p>
-                  </div>
-                </div>
-
-                {/* 光のエフェクト */}
-                <div className="absolute inset-0 bg-gradient-to-t from-transparent via-white/5 to-white/10 rounded-2xl opacity-0 group-hover:opacity-100 transition-opacity" />
+            <div className="space-y-4">
+              <div>
+                <p className="text-xs text-muted-foreground">選択中</p>
+                <p className="font-serif text-xl text-primary">{selectedBox.name}</p>
               </div>
-            </button>
-          )}
-        </div>
 
-        {/* 注釈 */}
-        {!isLoading && (
-          <p className="text-xs text-muted-foreground">※どれを引いても、良い結果は出ません</p>
+              <Button
+                onClick={() => onSelect(selectedBox)}
+                size="lg"
+                className="h-16 w-full rounded-[0.625rem] bg-gradient-to-b from-gold via-primary to-gold-dark text-lg font-bold text-primary-foreground shadow-[0_0_24px_rgba(214,158,46,0.36)] hover:scale-[1.01] hover:shadow-[0_0_34px_rgba(214,158,46,0.55)] active:scale-[0.985]"
+              >
+                今日の運勢を占う
+              </Button>
+
+              <p className="text-xs text-muted-foreground">※どの箱を選んでも、良い結果は出ません</p>
+            </div>
+          </>
         )}
       </div>
     </motion.div>
   )
 }
 
-// 3. 結果ページ
 function ResultPage({
   result,
-  oracle,
+  selectedBox,
   onRetry,
-  onClose,
 }: {
-  result: FortuneResult
-  oracle: string
+  result: DrawResult
+  selectedBox: OmikujiBox | null
   onRetry: () => void
-  onClose: () => void
 }) {
+  const fortune = result.fortune
+
   return (
     <motion.div
       variants={pageVariants}
@@ -288,115 +348,111 @@ function ResultPage({
       className="flex-1 flex flex-col items-center px-4 py-8 overflow-y-auto"
     >
       <div className="max-w-md w-full space-y-6">
-        {/* ヘッダー */}
         <div className="text-center space-y-2">
           <p className="text-sm text-muted-foreground tracking-widest">本日のギャンブル運</p>
-          <h2 className="font-serif text-6xl font-bold text-accent tracking-wider">{result.name}</h2>
+          <h2 className="font-serif text-4xl font-bold text-accent tracking-wider">{fortune.title}</h2>
+          {selectedBox && <p className="text-xs text-muted-foreground">{selectedBox.name}から授かりました</p>}
         </div>
 
-        {/* 結果画像エリア */}
-        <div className="relative aspect-video bg-secondary/50 rounded-xl overflow-hidden border-2 border-accent/30">
-          <div className="absolute inset-0 flex items-center justify-center">
-            <div className="text-center space-y-2">
-              <div className="w-20 h-20 mx-auto rounded-full bg-accent/20 flex items-center justify-center">
-                <span className="font-serif text-3xl text-accent">凶</span>
-              </div>
-              <p className="text-xs text-muted-foreground">※画像準備中</p>
-            </div>
+        <div className="relative overflow-hidden rounded-lg border border-primary/30 bg-secondary/30 px-6 py-5">
+          <div className="absolute inset-0 bg-[radial-gradient(circle_at_center,oklch(0.75_0.15_60_/_0.16),transparent_62%)]" />
+          <img
+            src={fortune.imageUrl}
+            alt={`${fortune.title}のおみくじ画像`}
+            className="relative mx-auto aspect-square w-full max-w-[320px] object-contain drop-shadow-[0_20px_35px_rgba(0,0,0,0.55)]"
+          />
+        </div>
+
+        <div className="grid grid-cols-2 gap-3">
+          <div className="rounded-lg border border-primary/25 bg-card/85 p-4">
+            <p className="text-xs text-primary tracking-widest font-medium">おみくじレベル</p>
+            <p className="mt-2 font-serif text-3xl text-accent">レベル{result.level}</p>
+          </div>
+          <div className="rounded-lg border border-primary/25 bg-card/85 p-4">
+            <p className="text-xs text-primary tracking-widest font-medium">本日の想定負け金額</p>
+            <p className="mt-2 font-serif text-2xl text-accent">{yenFormatter.format(result.lossAmount)}</p>
           </div>
         </div>
 
-        {/* 危険ワード */}
-        <div className="bg-accent/10 border-2 border-accent/40 rounded-xl p-5">
-          <p className="text-xs text-muted-foreground mb-2">今日の危険ワード</p>
-          <p className="font-serif text-3xl text-accent font-bold">「{result.dangerWord}」</p>
+        <div className="bg-card border border-border rounded-lg p-5 space-y-3">
+          <p className="text-xs text-primary tracking-widest font-medium">おみくじ説明</p>
+          <p className="text-foreground leading-relaxed">{fortune.description}</p>
         </div>
 
-        {/* お告げ */}
-        <div className="bg-card border border-border rounded-xl p-5 space-y-3">
+        <div className="bg-card border border-border rounded-lg p-5 space-y-3">
+          <p className="text-xs text-primary tracking-widest font-medium">今日の危険キーワード</p>
+          <p className="font-serif text-2xl text-accent">「{result.dangerKeyword}」</p>
+        </div>
+
+        <div className="bg-secondary/50 rounded-lg p-5 border-l-4 border-primary space-y-3">
           <p className="text-xs text-primary tracking-widest font-medium">お告げ</p>
-          <p className="text-foreground leading-relaxed text-lg">{oracle}</p>
+          <p className="text-foreground leading-relaxed">{result.oracle}</p>
         </div>
 
-        {/* 回避行動 */}
-        <div className="bg-secondary/50 rounded-xl p-5 border-l-4 border-primary">
-          <p className="text-xs text-primary mb-2 font-medium">今日の回避行動</p>
-          <p className="text-foreground leading-relaxed">{result.avoidanceAction}</p>
+        <div className="bg-card border border-border rounded-lg p-5 space-y-3">
+          <p className="text-xs text-primary tracking-widest font-medium">今日のラッキーアイテム</p>
+          <p className="font-serif text-2xl text-foreground">{result.luckyItem}</p>
         </div>
 
-        {/* アクションボタン */}
         <div className="space-y-4 pt-4">
-          <Button
-            onClick={onClose}
-            size="lg"
-            className="w-full h-16 text-xl font-bold bg-primary text-primary-foreground hover:bg-primary/90 rounded-xl shadow-lg animate-pulse-glow"
-          >
-            今日は行かない
-          </Button>
-
           <Button
             onClick={onRetry}
             variant="outline"
             size="lg"
-            className="w-full h-14 text-lg font-medium border-2 border-border hover:bg-secondary/50 rounded-xl"
+            className="w-full h-14 text-lg font-medium border-2 border-border hover:bg-secondary/50 rounded-lg"
           >
-            もう一度引く
+            別の箱を選ぶ
           </Button>
 
           <div className="flex gap-3">
             <Button
               variant="outline"
-              className="flex-1 h-12 border-green-600/50 text-green-500 hover:bg-green-600/10 hover:text-green-400 rounded-xl"
-              onClick={() => window.open(getLineShareUrl(), "_blank")}
+              className="flex-1 h-12 border-green-600/50 text-green-500 hover:bg-green-600/10 hover:text-green-400 rounded-lg"
+              onClick={() => window.open(getLineShareUrl(result, selectedBox), "_blank")}
             >
               LINEで送る
             </Button>
             <Button
               variant="outline"
-              className="flex-1 h-12 border-sky-500/50 text-sky-400 hover:bg-sky-500/10 hover:text-sky-300 rounded-xl"
-              onClick={() => window.open(getTwitterShareUrl(result, oracle), "_blank")}
+              className="flex-1 h-12 border-sky-500/50 text-sky-400 hover:bg-sky-500/10 hover:text-sky-300 rounded-lg"
+              onClick={() => window.open(getTwitterShareUrl(result, selectedBox), "_blank")}
             >
               Xでシェア
             </Button>
           </div>
         </div>
-
-        {/* 注記 */}
-        <p className="text-xs text-center text-muted-foreground pt-2">
-          ※結果はあなたを守るために出ています。
-        </p>
       </div>
     </motion.div>
   )
 }
 
-// メインページコンポーネント
 export default function Home() {
   const [step, setStep] = useState<Step>("welcome")
-  const [currentResult, setCurrentResult] = useState<FortuneResult | null>(null)
-  const [oracle, setOracle] = useState("")
+  const [selectedBoxId, setSelectedBoxId] = useState(1)
+  const [selectedBox, setSelectedBox] = useState<OmikujiBox | null>(null)
+  const [currentResult, setCurrentResult] = useState<DrawResult | null>(null)
   const [isLoading, setIsLoading] = useState(false)
 
   const handleStart = () => {
     setStep("select")
   }
 
-  const handleSelect = async () => {
-    const result = getRandomFortune()
-    setCurrentResult(result)
-    setOracle("")
+  const handleSelect = async (box: OmikujiBox) => {
+    setSelectedBox(box)
+    setCurrentResult(null)
     setIsLoading(true)
 
+    const fallbackResult = drawResult(box)
+
     try {
-      const response = await fetch("/api/omikuji", { method: "POST" })
-      if (!response.ok) {
-        throw new Error("API request failed")
-      }
-      const data = await response.json()
-      setOracle(data.text || FALLBACK_ORACLE)
+      const aiMessages = await generateAiMessages(box, fallbackResult)
+      setCurrentResult({
+        ...fallbackResult,
+        ...aiMessages,
+      })
     } catch (error) {
-      console.error("Failed to fetch oracle:", error)
-      setOracle(FALLBACK_ORACLE)
+      console.warn("Falling back to local omikuji messages:", error)
+      setCurrentResult(fallbackResult)
     } finally {
       setIsLoading(false)
       setStep("result")
@@ -407,43 +463,34 @@ export default function Home() {
     setStep("select")
   }
 
-  const handleClose = () => {
-    setStep("welcome")
-  }
-
   return (
     <main className="relative min-h-screen flex flex-col">
-      {/* 背景エフェクト */}
       <SmokeBackground />
       <Decorations />
 
-      {/* メインコンテンツ */}
       <div className="relative z-10 flex-1 flex flex-col">
         <AnimatePresence mode="wait">
           {step === "welcome" && <WelcomePage key="welcome" onStart={handleStart} />}
           {step === "select" && (
-            <SelectPage key="select" isLoading={isLoading} onSelect={handleSelect} />
+            <SelectPage
+              key="select"
+              selectedBoxId={selectedBoxId}
+              isLoading={isLoading}
+              onBoxChange={setSelectedBoxId}
+              onSelect={handleSelect}
+            />
           )}
           {step === "result" && currentResult && (
             <ResultPage
               key="result"
               result={currentResult}
-              oracle={oracle}
+              selectedBox={selectedBox}
               onRetry={handleRetry}
-              onClose={handleClose}
             />
           )}
         </AnimatePresence>
       </div>
 
-      {/* フッター注意書き */}
-      <footer className="relative z-10 py-6 px-4 text-center">
-        <p className="text-xs text-muted-foreground/60 max-w-xs mx-auto leading-relaxed">
-          ※これは医療サービスではありません。
-          <br />
-          「今日だけ行かないきっかけ作り」を目的としたセルフヘルプコンテンツです。
-        </p>
-      </footer>
     </main>
   )
 }
