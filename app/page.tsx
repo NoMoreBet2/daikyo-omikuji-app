@@ -3,8 +3,6 @@
 import type { ReactNode } from "react"
 import { useState } from "react"
 import { motion, AnimatePresence } from "framer-motion"
-import { Loader2 } from "lucide-react"
-
 import { Button } from "@/components/ui/button"
 import {
   Carousel,
@@ -24,7 +22,7 @@ import {
   type OmikujiBox,
 } from "@/lib/omikuji-data"
 
-type Step = "welcome" | "select" | "result"
+type Step = "welcome" | "select" | "drawing" | "result"
 
 interface DrawResult {
   fortune: FortuneResult
@@ -39,6 +37,13 @@ interface DrawResult {
 interface PurchaseExampleGroup {
   maxAmount: number
   items: string[]
+}
+
+interface DrawEffect {
+  mainText: string
+  leftText: string
+  rightText: string
+  tone: "red" | "purple"
 }
 
 const yenFormatter = new Intl.NumberFormat("ja-JP", {
@@ -133,6 +138,39 @@ const purchaseExampleGroups: PurchaseExampleGroup[] = [
     items: ["軽自動車", "普通車の頭金", "家族でハワイ旅行", "結婚式費用", "マイホーム頭金", "子どもの大学資金", "リフォーム", "投資資金", "教育資金", "老後資金"],
   },
 ]
+
+const drawEffects: DrawEffect[] = [
+  {
+    mainText: "今月の支払いが...",
+    leftText: "残高の気配",
+    rightText: "勝利をつかめ",
+    tone: "red",
+  },
+  {
+    mainText: "今ならまだ引き返せるのに...",
+    leftText: "次回トレネバ継続",
+    rightText: "勝利をつかめ",
+    tone: "red",
+  },
+  {
+    mainText: "もうだめだっ...",
+    leftText: "疾風の抜ける",
+    rightText: "静かに帰れ",
+    tone: "purple",
+  },
+  {
+    mainText: "あぁぁぁ...",
+    leftText: "財布の結界",
+    rightText: "家路を選べ",
+    tone: "purple",
+  },
+]
+
+function wait(ms: number) {
+  return new Promise((resolve) => {
+    window.setTimeout(resolve, ms)
+  })
+}
 
 function pickRandom<T>(items: T[]): T {
   return items[Math.floor(Math.random() * items.length)]
@@ -360,12 +398,10 @@ function WelcomePage({ onStart }: { onStart: () => void }) {
 
 function SelectPage({
   selectedBoxId,
-  isLoading,
   onBoxChange,
   onSelect,
 }: {
   selectedBoxId: number
-  isLoading: boolean
   onBoxChange: (boxId: number) => void
   onSelect: (box: OmikujiBox) => void
 }) {
@@ -394,65 +430,181 @@ function SelectPage({
           <h2 className="font-serif text-3xl font-bold text-foreground">おみくじ箱を選ぶ</h2>
         </div>
 
-        {isLoading ? (
-          <div className="flex flex-col items-center justify-center space-y-4 py-16">
-            <div className="w-24 h-24 rounded-full bg-accent/10 border-2 border-accent/30 flex items-center justify-center animate-pulse">
-              <Loader2 className="w-10 h-10 text-accent animate-spin" />
-            </div>
-            <p className="text-foreground font-medium">大凶を授かっています...</p>
-            <p className="text-sm text-muted-foreground">選ばれた箱から、今日の一枚を引いています</p>
+        <Carousel
+          opts={{ align: "center", loop: true }}
+          className="mx-auto w-full max-w-md overflow-hidden"
+          setApi={(api) => {
+            if (!api) return
+            const updateSelected = () => onBoxChange(api.selectedScrollSnap() + 1)
+            updateSelected()
+            api.on("select", updateSelected)
+          }}
+        >
+          <CarouselContent className="-ml-4">
+            {omikujiBoxes.map((box) => (
+              <CarouselItem key={box.id} className="basis-[56%] pl-4">
+                <button
+                  type="button"
+                  onClick={() => onSelect(box)}
+                  className="group relative block w-full overflow-hidden rounded-lg bg-transparent p-0 transition-all duration-300 active:scale-[0.98]"
+                >
+                  <img
+                    src={box.imageUrl}
+                    alt={`${box.name}の画像`}
+                    className="mx-auto aspect-square w-full object-contain drop-shadow-[0_18px_28px_rgba(0,0,0,0.55)] transition-transform duration-300 group-hover:scale-[1.03]"
+                  />
+                </button>
+              </CarouselItem>
+            ))}
+          </CarouselContent>
+          <CarouselPrevious className="left-2 border-primary/50 bg-background/80 text-primary hover:bg-secondary" />
+          <CarouselNext className="right-2 border-primary/50 bg-background/80 text-primary hover:bg-secondary" />
+        </Carousel>
+
+        <div className="space-y-4">
+          <div>
+            <p className="text-xs text-muted-foreground">選択中</p>
+            <p className="font-serif text-xl text-primary">{selectedBox.name}</p>
           </div>
-        ) : (
-          <>
-            <Carousel
-              opts={{ align: "center", loop: true }}
-              className="mx-auto w-full max-w-md overflow-hidden"
-              setApi={(api) => {
-                if (!api) return
-                const updateSelected = () => onBoxChange(api.selectedScrollSnap() + 1)
-                updateSelected()
-                api.on("select", updateSelected)
-              }}
+
+          <Button
+            onClick={() => onSelect(selectedBox)}
+            size="lg"
+            className="h-16 w-full rounded-[0.625rem] bg-gradient-to-b from-gold via-primary to-gold-dark text-lg font-bold text-primary-foreground shadow-[0_0_24px_rgba(214,158,46,0.36)] hover:scale-[1.01] hover:shadow-[0_0_34px_rgba(214,158,46,0.55)] active:scale-[0.985]"
+          >
+            今日の運勢を占う
+          </Button>
+
+          <p className="text-xs text-muted-foreground">※どの箱を選んでも、良い結果は出ません</p>
+        </div>
+      </div>
+    </motion.div>
+  )
+}
+
+function ConfirmBoxDialog({
+  box,
+  onCancel,
+  onConfirm,
+}: {
+  box: OmikujiBox
+  onCancel: () => void
+  onConfirm: () => void
+}) {
+  return (
+    <div className="fixed inset-0 z-50 flex items-center justify-center bg-background/78 px-5 backdrop-blur-sm">
+      <motion.div
+        initial={{ opacity: 0, scale: 0.94, y: 18 }}
+        animate={{ opacity: 1, scale: 1, y: 0 }}
+        exit={{ opacity: 0, scale: 0.96, y: 10 }}
+        transition={{ duration: 0.22 }}
+        className="w-full max-w-sm overflow-hidden rounded-lg border border-primary/45 bg-background/95 p-5 text-center shadow-[0_0_42px_rgba(214,158,46,0.22)]"
+      >
+        <div className="space-y-4">
+          <div className="space-y-2">
+            <p className="text-xs tracking-[0.28em] text-primary">CONFIRM</p>
+            <h3 className="font-serif text-2xl text-foreground">このおみくじ箱でいいですか？</h3>
+          </div>
+
+          <div className="mx-auto w-52">
+            <img
+              src={box.imageUrl}
+              alt={`${box.name}の画像`}
+              className="aspect-square w-full object-contain drop-shadow-[0_16px_28px_rgba(0,0,0,0.58)]"
+            />
+          </div>
+
+          <p className="font-serif text-xl text-primary">{box.name}</p>
+
+          <div className="grid grid-cols-2 gap-3 pt-2">
+            <Button
+              type="button"
+              variant="outline"
+              className="h-12 rounded-lg border-border text-foreground hover:bg-secondary/50"
+              onClick={onCancel}
             >
-              <CarouselContent className="-ml-4">
-                {omikujiBoxes.map((box) => (
-                  <CarouselItem key={box.id} className="basis-[56%] pl-4">
-                    <button
-                      type="button"
-                      onClick={() => onSelect(box)}
-                      className="group relative block w-full overflow-hidden rounded-lg bg-transparent p-0 transition-all duration-300 active:scale-[0.98]"
-                    >
-                      <img
-                        src={box.imageUrl}
-                        alt={`${box.name}の画像`}
-                        className="mx-auto aspect-square w-full object-contain drop-shadow-[0_18px_28px_rgba(0,0,0,0.55)] transition-transform duration-300 group-hover:scale-[1.03]"
-                      />
-                    </button>
-                  </CarouselItem>
-                ))}
-              </CarouselContent>
-              <CarouselPrevious className="left-2 border-primary/50 bg-background/80 text-primary hover:bg-secondary" />
-              <CarouselNext className="right-2 border-primary/50 bg-background/80 text-primary hover:bg-secondary" />
-            </Carousel>
+              選び直す
+            </Button>
+            <Button
+              type="button"
+              className="h-12 rounded-lg bg-gradient-to-b from-gold via-primary to-gold-dark font-bold text-primary-foreground shadow-[0_0_22px_rgba(214,158,46,0.32)]"
+              onClick={onConfirm}
+            >
+              この箱で占う
+            </Button>
+          </div>
+        </div>
+      </motion.div>
+    </div>
+  )
+}
 
-            <div className="space-y-4">
-              <div>
-                <p className="text-xs text-muted-foreground">選択中</p>
-                <p className="font-serif text-xl text-primary">{selectedBox.name}</p>
-              </div>
+function DrawingPage({ box, effect }: { box: OmikujiBox | null; effect: DrawEffect }) {
+  const beamColor = effect.tone === "red" ? "239,68,68" : "168,85,247"
+  const glowColor = effect.tone === "red" ? "rgba(239,68,68,0.8)" : "rgba(168,85,247,0.82)"
 
-              <Button
-                onClick={() => onSelect(selectedBox)}
-                size="lg"
-                className="h-16 w-full rounded-[0.625rem] bg-gradient-to-b from-gold via-primary to-gold-dark text-lg font-bold text-primary-foreground shadow-[0_0_24px_rgba(214,158,46,0.36)] hover:scale-[1.01] hover:shadow-[0_0_34px_rgba(214,158,46,0.55)] active:scale-[0.985]"
-              >
-                今日の運勢を占う
-              </Button>
+  return (
+    <motion.div
+      variants={pageVariants}
+      initial="initial"
+      animate="animate"
+      exit="exit"
+      transition={{ duration: 0.35 }}
+      className="relative flex-1 overflow-hidden"
+      style={{
+        backgroundImage: "url('/select-bg.png')",
+        backgroundPosition: "center",
+        backgroundSize: "cover",
+      }}
+    >
+      <div className="absolute inset-0 bg-background/55" />
+      <div className="absolute inset-0 bg-[radial-gradient(circle_at_center,transparent_0%,oklch(0.04_0.02_285_/_0.82)_72%)]" />
+      <div
+        className="absolute left-1/2 top-[18%] h-[52%] w-24 -translate-x-1/2 animate-pulse blur-2xl"
+        style={{
+          background: `linear-gradient(to bottom, rgba(${beamColor},0), rgba(${beamColor},0.75), rgba(${beamColor},0))`,
+        }}
+      />
+      <div
+        className="absolute left-1/2 top-[18%] h-[56%] w-px -translate-x-1/2"
+        style={{
+          boxShadow: `0 0 70px 28px ${glowColor}`,
+        }}
+      />
 
-              <p className="text-xs text-muted-foreground">※どの箱を選んでも、良い結果は出ません</p>
-            </div>
-          </>
-        )}
+      <div className="relative z-10 flex min-h-screen flex-col items-center justify-end px-5 pb-20 pt-16 text-center">
+        <div className="absolute left-7 top-1/2 -translate-y-1/2 [writing-mode:vertical-rl] font-serif text-lg tracking-[0.28em] text-primary/70">
+          {effect.leftText}
+        </div>
+        <div className="absolute right-7 top-1/2 -translate-y-1/2 [writing-mode:vertical-rl] font-serif text-lg tracking-[0.28em] text-primary/70">
+          {effect.rightText}
+        </div>
+
+        <motion.div
+          initial={{ opacity: 0, y: 28, scale: 0.92 }}
+          animate={{ opacity: 1, y: 0, scale: 1 }}
+          transition={{ duration: 0.7, ease: "easeOut" }}
+          className="absolute left-1/2 top-[10%] -translate-x-1/2 [writing-mode:vertical-rl] font-serif text-5xl font-bold tracking-[0.14em]"
+          style={{
+            color: effect.tone === "red" ? "#ff4c4c" : "#d487ff",
+            textShadow: `0 0 18px ${glowColor}, 0 0 42px ${glowColor}`,
+          }}
+        >
+          {effect.mainText}
+        </motion.div>
+
+        <div className="relative w-full max-w-sm">
+          <div className="absolute left-1/2 top-5 h-14 w-36 -translate-x-1/2 rounded-full bg-black/85 blur-md" />
+          {box && (
+            <img
+              src={box.imageUrl}
+              alt={`${box.name}の画像`}
+              className="relative z-10 mx-auto aspect-square w-full object-contain drop-shadow-[0_26px_38px_rgba(0,0,0,0.72)]"
+            />
+          )}
+        </div>
+
+        <p className="mt-6 text-xs tracking-[0.28em] text-muted-foreground">授かり中</p>
       </div>
     </motion.div>
   )
@@ -564,36 +716,47 @@ export default function Home() {
   const [step, setStep] = useState<Step>("welcome")
   const [selectedBoxId, setSelectedBoxId] = useState(1)
   const [selectedBox, setSelectedBox] = useState<OmikujiBox | null>(null)
+  const [pendingConfirmBox, setPendingConfirmBox] = useState<OmikujiBox | null>(null)
+  const [drawingEffect, setDrawingEffect] = useState<DrawEffect>(drawEffects[0])
   const [currentResult, setCurrentResult] = useState<DrawResult | null>(null)
-  const [isLoading, setIsLoading] = useState(false)
 
   const handleStart = () => {
     setStep("select")
   }
 
-  const handleSelect = async (box: OmikujiBox) => {
+  const handleSelect = (box: OmikujiBox) => {
+    setPendingConfirmBox(box)
+  }
+
+  const handleConfirmSelect = async () => {
+    const box = pendingConfirmBox
+    if (!box) return
+
+    setPendingConfirmBox(null)
     setSelectedBox(box)
     setCurrentResult(null)
-    setIsLoading(true)
+    setDrawingEffect(pickRandom(drawEffects))
+    setStep("drawing")
 
     const fallbackResult = drawResult(box)
 
     try {
-      const aiMessages = await generateAiMessages(box, fallbackResult)
+      const [aiMessages] = await Promise.all([generateAiMessages(box, fallbackResult), wait(1800)])
       setCurrentResult({
         ...fallbackResult,
         ...aiMessages,
       })
     } catch (error) {
       console.warn("Falling back to local omikuji messages:", error)
+      await wait(1800)
       setCurrentResult(fallbackResult)
     } finally {
-      setIsLoading(false)
       setStep("result")
     }
   }
 
   const handleRetry = () => {
+    setPendingConfirmBox(null)
     setStep("select")
   }
 
@@ -609,9 +772,15 @@ export default function Home() {
             <SelectPage
               key="select"
               selectedBoxId={selectedBoxId}
-              isLoading={isLoading}
               onBoxChange={setSelectedBoxId}
               onSelect={handleSelect}
+            />
+          )}
+          {step === "drawing" && (
+            <DrawingPage
+              key="drawing"
+              box={selectedBox}
+              effect={drawingEffect}
             />
           )}
           {step === "result" && currentResult && (
@@ -624,6 +793,17 @@ export default function Home() {
           )}
         </AnimatePresence>
       </div>
+
+      <AnimatePresence>
+        {pendingConfirmBox && step === "select" && (
+          <ConfirmBoxDialog
+            key="confirm-box"
+            box={pendingConfirmBox}
+            onCancel={() => setPendingConfirmBox(null)}
+            onConfirm={handleConfirmSelect}
+          />
+        )}
+      </AnimatePresence>
 
     </main>
   )
