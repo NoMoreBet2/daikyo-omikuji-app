@@ -38,7 +38,6 @@ interface DrawResult {
 interface PurchaseExample {
   name: string
   price: number
-  unit: string
 }
 
 const yenFormatter = new Intl.NumberFormat("ja-JP", {
@@ -48,18 +47,18 @@ const yenFormatter = new Intl.NumberFormat("ja-JP", {
 })
 
 const purchaseExamples: PurchaseExample[] = [
-  { name: "コンビニおにぎり", price: 180, unit: "個" },
-  { name: "カフェのコーヒー", price: 500, unit: "杯" },
-  { name: "定食ランチ", price: 1000, unit: "食" },
-  { name: "映画チケット", price: 2000, unit: "回" },
-  { name: "日帰り温泉", price: 3000, unit: "回" },
-  { name: "一週間分の食材", price: 7000, unit: "回" },
-  { name: "スニーカー", price: 12000, unit: "足" },
-  { name: "一泊旅行の宿", price: 15000, unit: "泊" },
-  { name: "ワイヤレスイヤホン", price: 18000, unit: "個" },
-  { name: "家電の買い替え資金", price: 30000, unit: "回" },
-  { name: "国内小旅行", price: 50000, unit: "回" },
-  { name: "新しいスマホ", price: 120000, unit: "台" },
+  { name: "ちょっといいランチ", price: 1000 },
+  { name: "映画チケット", price: 2000 },
+  { name: "日帰り温泉", price: 3000 },
+  { name: "一週間分の食材", price: 7000 },
+  { name: "スニーカー", price: 12000 },
+  { name: "ワイヤレスイヤホン", price: 18000 },
+  { name: "家電の買い替え資金", price: 30000 },
+  { name: "国内小旅行", price: 50000 },
+  { name: "韓国旅行", price: 80000 },
+  { name: "新しいスマホ", price: 120000 },
+  { name: "高性能ノートPC", price: 180000 },
+  { name: "海外旅行", price: 300000 },
 ]
 
 function pickRandom<T>(items: T[]): T {
@@ -93,16 +92,10 @@ function roundUpToHundred(amount: number): number {
 }
 
 function getPurchaseExample(lossAmount: number) {
-  const affordable = purchaseExamples
-    .filter((item) => item.price <= lossAmount)
-    .map((item) => ({
-      ...item,
-      quantity: Math.max(1, Math.floor(lossAmount / item.price)),
-    }))
+  const affordable = purchaseExamples.filter((item) => item.price <= lossAmount)
 
   return affordable[affordable.length - 1] ?? {
     ...purchaseExamples[0],
-    quantity: 1,
   }
 }
 
@@ -162,7 +155,7 @@ function getShareText(result: DrawResult, selectedBox: OmikujiBox | null): strin
   return `【${result.fortune.title}】${boxText}
 レベル：${result.level}
 本日の想定負け金額：${yenFormatter.format(result.lossAmount)}
-買えたもの：${purchaseItem.name} 約${purchaseItem.quantity}${purchaseItem.unit}分
+買えたもの：${purchaseItem.name}
 危険キーワード：${result.dangerKeyword}
 ラッキーアイテム：${result.luckyItem}
 
@@ -449,10 +442,6 @@ function ResultPage({
           <div className="space-y-1">
             <p className="text-sm text-muted-foreground">たとえば</p>
             <p className="font-serif text-2xl text-foreground">{purchaseItem.name}</p>
-            <p className="font-serif text-3xl text-accent">
-              約{purchaseItem.quantity}
-              {purchaseItem.unit}分
-            </p>
           </div>
           <p className="text-xs text-muted-foreground">※金額は目安です。</p>
         </ResultFrame>
