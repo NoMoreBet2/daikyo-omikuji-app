@@ -434,18 +434,16 @@ function ResultPage({
           </div>
         </ResultFrame>
 
-        <ResultFrame title="本日の想定負け金額 + この金額で買えたもの">
-          <div className="grid gap-4 sm:grid-cols-2">
+        <ResultFrame title="本日の想定負け金額">
+          <div className="space-y-5">
             <div className="space-y-1">
-              <p className="text-xs text-muted-foreground">本日の想定負け金額</p>
               <p className="font-serif text-2xl text-accent">{yenFormatter.format(result.lossAmount)}</p>
             </div>
             <div className="space-y-1">
-              <p className="text-xs text-muted-foreground">たとえば</p>
+              <p className="text-xs text-primary tracking-widest font-medium">この金額で買えたもの</p>
               <p className="font-serif text-2xl text-foreground">{purchaseItem.name}</p>
             </div>
           </div>
-          <p className="text-xs text-muted-foreground">※金額は目安です。</p>
         </ResultFrame>
 
         <ResultFrame title="お告げ">
