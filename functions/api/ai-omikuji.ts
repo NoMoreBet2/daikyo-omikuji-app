@@ -38,10 +38,21 @@ function normalizeMessages(value: any): AiOmikujiMessages | null {
 }
 
 function fallbackMessages(boxShortName: string, fortuneTitle: string): AiOmikujiMessages {
+  const fallbackLuckyItems = [
+    "イヤホンケース",
+    "帰り道の地図",
+    "白いハンカチ",
+    "小さなメモ帳",
+    "通知オフ設定",
+    "早寝のアラーム",
+    "空の封筒",
+    "散歩用の靴",
+  ]
+
   return {
     dangerKeyword: "あと一回だけ",
     oracle: `${boxShortName}の誘惑が強い日です。${fortuneTitle}が出た今日は、勝負よりも距離を置く判断がいちばん強いお守りになります。`,
-    luckyItem: "温かい飲み物",
+    luckyItem: fallbackLuckyItems[Math.floor(Math.random() * fallbackLuckyItems.length)],
   }
 }
 
@@ -72,6 +83,9 @@ export async function onRequestPost(context: any) {
 - 医療・治療・診断を名乗らないでください。
 - 出力は必ずJSONだけにしてください。
 - 毎回違いが出るように、定型文を避けてください。
+- ラッキーアイテムは飲み物・本に偏らないでください。
+- ラッキーアイテムは、持ち物、行動のきっかけ、家にある小物、外出を避ける道具、スマホ設定、衣類、文具、財布まわり、休息グッズなどから幅広く選んでください。
+- ラッキーアイテムにギャンブルを連想させるもの、購入を促すもの、高額なものは出さないでください。
 
 選択された箱: ${boxName}
 箱の短い名前: ${boxShortName}
@@ -84,7 +98,7 @@ export async function onRequestPost(context: any) {
 {
   "dangerKeyword": "今日避けたい危険キーワード。12文字以内。ギャンブル種別に合う言葉。",
   "oracle": "お告げ。80〜140文字。${boxShortName}と${fortuneTitle}に触れ、今日行かない理由になる文章。",
-  "luckyItem": "今日のラッキーアイテム。12文字以内。身近で健全なもの。"
+  "luckyItem": "今日のラッキーアイテム。12文字以内。飲み物と本以外を優先し、具体的で身近なもの。"
 }`
 
   try {
