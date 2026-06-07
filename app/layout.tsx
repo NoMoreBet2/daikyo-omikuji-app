@@ -16,9 +16,32 @@ const notoSerifJP = Noto_Serif_JP({
 })
 
 export const metadata: Metadata = {
+  metadataBase: new URL('https://omikuji.kaiju-support.com'),
   title: '大凶おみくじ | 今日だけ行かない理由を作る',
   description: '悪い結果しか出ない、ギャンブル回避おみくじ。今日だけ行かない理由を、運勢のせいにしよう。',
   generator: 'v0.app',
+  openGraph: {
+    title: '大凶おみくじ | 今日だけ行かない理由を作る',
+    description: '悪い結果しか出ない、ギャンブル回避おみくじ。今日だけ行かない理由を、運勢のせいにしよう。',
+    url: 'https://omikuji.kaiju-support.com',
+    siteName: '大凶おみくじ',
+    images: [
+      {
+        url: '/og-image.png',
+        width: 1254,
+        height: 1254,
+        alt: '大凶おみくじ 賭内神社へようこそ',
+      },
+    ],
+    locale: 'ja_JP',
+    type: 'website',
+  },
+  twitter: {
+    card: 'summary_large_image',
+    title: '大凶おみくじ | 今日だけ行かない理由を作る',
+    description: '悪い結果しか出ない、ギャンブル回避おみくじ。今日だけ行かない理由を、運勢のせいにしよう。',
+    images: ['/og-image.png'],
+  },
   icons: {
     icon: [
       {
