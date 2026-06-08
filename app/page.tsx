@@ -527,17 +527,6 @@ function SelectPage({
           <h2 className="font-serif text-3xl font-bold text-foreground">おみくじ箱を選ぶ</h2>
         </div>
 
-        <div className="grid grid-cols-2 gap-3 text-left">
-          <div className="rounded-lg border border-primary/35 bg-background/55 px-4 py-3 shadow-[0_0_18px_rgba(214,158,46,0.12)]">
-            <p className="text-[0.65rem] tracking-[0.18em] text-primary">連続おみくじ回数</p>
-            <p className="mt-1 font-serif text-2xl text-foreground">{stats.streakCount}回</p>
-          </div>
-          <div className="rounded-lg border border-primary/35 bg-background/55 px-4 py-3 shadow-[0_0_18px_rgba(214,158,46,0.12)]">
-            <p className="text-[0.65rem] tracking-[0.18em] text-primary">累計想定負け金額</p>
-            <p className="mt-1 font-serif text-xl text-accent">{yenFormatter.format(stats.totalLossAmount)}</p>
-          </div>
-        </div>
-
         <Carousel
           opts={{ align: "center", loop: true }}
           className="mx-auto w-full max-w-md overflow-hidden"
@@ -588,6 +577,17 @@ function SelectPage({
           <p className="text-xs text-muted-foreground">
             {drawnToday ? "※おみくじは一日一回までです" : "※どの箱を選んでも、良い結果は出ません"}
           </p>
+        </div>
+
+        <div className="grid grid-cols-2 gap-3 text-left">
+          <div className="rounded-lg border border-primary/35 bg-background/55 px-4 py-3 shadow-[0_0_18px_rgba(214,158,46,0.12)]">
+            <p className="text-[0.65rem] tracking-[0.18em] text-primary">連続おみくじ回数</p>
+            <p className="mt-1 font-serif text-2xl text-foreground">{stats.streakCount}回</p>
+          </div>
+          <div className="rounded-lg border border-primary/35 bg-background/55 px-4 py-3 shadow-[0_0_18px_rgba(214,158,46,0.12)]">
+            <p className="text-[0.65rem] tracking-[0.18em] text-primary">累計想定負け金額</p>
+            <p className="mt-1 font-serif text-xl text-accent">{yenFormatter.format(stats.totalLossAmount)}</p>
+          </div>
         </div>
       </div>
     </motion.div>
