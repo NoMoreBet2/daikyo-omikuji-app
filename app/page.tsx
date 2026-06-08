@@ -638,10 +638,7 @@ function ResultPage({
         <div className="mx-auto w-full max-w-md space-y-5 px-4">
           <ResultFrame title="おみくじ説明">
             <div className="space-y-4">
-              <div className="space-y-2">
-                <p className="font-serif text-xl text-accent">大凶レベル{result.level}</p>
-                <img src={levelImageUrl} alt={`大凶レベル${result.level}`} className="h-7 w-auto" />
-              </div>
+              <img src={levelImageUrl} alt={`大凶レベル${result.level}`} className="w-full max-w-[360px]" />
               <p className="text-foreground leading-relaxed">{fortune.description}</p>
             </div>
           </ResultFrame>
