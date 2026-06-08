@@ -48,6 +48,8 @@ interface DrawEffect {
 
 interface OmikujiStats {
   lastDrawDate: string | null
+  lastBoxId: number | null
+  lastResult: DrawResult | null
   streakCount: number
   totalLossAmount: number
   drawnFortuneIds: number[]
@@ -58,6 +60,8 @@ const statsStorageKey = "daikyo-omikuji-stats-v1"
 
 const defaultStats: OmikujiStats = {
   lastDrawDate: null,
+  lastBoxId: null,
+  lastResult: null,
   streakCount: 0,
   totalLossAmount: 0,
   drawnFortuneIds: [],
@@ -223,6 +227,8 @@ function normalizeStats(value: unknown): OmikujiStats {
 
   return {
     lastDrawDate: typeof stats.lastDrawDate === "string" ? stats.lastDrawDate : null,
+    lastBoxId: typeof stats.lastBoxId === "number" ? stats.lastBoxId : null,
+    lastResult: stats.lastResult && typeof stats.lastResult === "object" ? (stats.lastResult as DrawResult) : null,
     streakCount: typeof stats.streakCount === "number" ? stats.streakCount : 0,
     totalLossAmount: typeof stats.totalLossAmount === "number" ? stats.totalLossAmount : 0,
     drawnFortuneIds: Array.isArray(stats.drawnFortuneIds)
@@ -248,7 +254,7 @@ function hasDrawnToday(stats: OmikujiStats) {
   return stats.lastDrawDate === getTodayKey()
 }
 
-function recordDraw(stats: OmikujiStats, result: DrawResult): OmikujiStats {
+function recordDraw(stats: OmikujiStats, result: DrawResult, box: OmikujiBox): OmikujiStats {
   const today = getTodayKey()
 
   if (stats.lastDrawDate === today) return stats
@@ -259,6 +265,8 @@ function recordDraw(stats: OmikujiStats, result: DrawResult): OmikujiStats {
 
   return {
     lastDrawDate: today,
+    lastBoxId: box.id,
+    lastResult: result,
     streakCount,
     totalLossAmount: stats.totalLossAmount + result.lossAmount,
     drawnFortuneIds,
@@ -544,13 +552,22 @@ function SelectPage({
                   type="button"
                   disabled={drawnToday}
                   onClick={() => onSelect(box)}
-                  className="group relative block w-full overflow-hidden rounded-lg bg-transparent p-0 transition-all duration-300 active:scale-[0.98] disabled:pointer-events-none disabled:opacity-55"
+                  className="group relative block w-full overflow-hidden rounded-lg bg-transparent p-0 transition-all duration-300 active:scale-[0.98] disabled:pointer-events-none"
                 >
                   <img
                     src={box.imageUrl}
                     alt={`${box.name}の画像`}
-                    className="mx-auto aspect-square w-full object-contain drop-shadow-[0_18px_28px_rgba(0,0,0,0.55)] transition-transform duration-300 group-hover:scale-[1.03]"
+                    className={`mx-auto aspect-square w-full object-contain drop-shadow-[0_18px_28px_rgba(0,0,0,0.55)] transition-transform duration-300 group-hover:scale-[1.03] ${drawnToday ? "opacity-45 grayscale" : ""}`}
                   />
+                  {drawnToday && (
+                    <div className="absolute inset-0 flex items-center justify-center bg-background/62 px-3 backdrop-blur-[1px]">
+                      <p className="font-serif text-sm leading-relaxed text-foreground">
+                        今日はもう引きました
+                        <br />
+                        また明日引いてください
+                      </p>
+                    </div>
+                  )}
                 </button>
               </CarouselItem>
             ))}
@@ -567,11 +584,10 @@ function SelectPage({
 
           <Button
             onClick={() => onSelect(selectedBox)}
-            disabled={drawnToday}
             size="lg"
             className="h-16 w-full rounded-[0.625rem] bg-gradient-to-b from-gold via-primary to-gold-dark text-lg font-bold text-primary-foreground shadow-[0_0_24px_rgba(214,158,46,0.36)] hover:scale-[1.01] hover:shadow-[0_0_34px_rgba(214,158,46,0.55)] active:scale-[0.985]"
           >
-            {drawnToday ? "本日は参拝済み" : "今日の運勢を占う"}
+            {drawnToday ? "今日の結果をもう一度見る" : "今日の運勢を占う"}
           </Button>
 
           <p className="text-xs text-muted-foreground">
@@ -826,7 +842,17 @@ export default function Home() {
   }
 
   const handleSelect = (box: OmikujiBox) => {
-    if (hasDrawnToday(stats)) return
+    if (hasDrawnToday(stats)) {
+      const lastResult = stats.lastResult ?? currentResult
+      if (!lastResult) return
+
+      const lastBox = omikujiBoxes.find((omikujiBox) => omikujiBox.id === stats.lastBoxId) ?? box
+      setSelectedBox(lastBox)
+      setCurrentResult(lastResult)
+      setStep("result")
+      return
+    }
+
     setPendingConfirmBox(box)
   }
 
@@ -854,7 +880,7 @@ export default function Home() {
       }
       setCurrentResult(result)
       setStats((previousStats) => {
-        const nextStats = recordDraw(previousStats, result)
+        const nextStats = recordDraw(previousStats, result, box)
         saveStats(nextStats)
         return nextStats
       })
@@ -863,7 +889,7 @@ export default function Home() {
       await wait(1800)
       setCurrentResult(fallbackResult)
       setStats((previousStats) => {
-        const nextStats = recordDraw(previousStats, fallbackResult)
+        const nextStats = recordDraw(previousStats, fallbackResult, box)
         saveStats(nextStats)
         return nextStats
       })
