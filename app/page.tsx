@@ -1,6 +1,6 @@
 "use client"
 
-import type { ReactNode } from "react"
+import type { MouseEvent, ReactNode } from "react"
 import { useEffect, useState } from "react"
 import { motion, AnimatePresence } from "framer-motion"
 import { Button } from "@/components/ui/button"
@@ -254,13 +254,14 @@ function hasDrawnToday(stats: OmikujiStats) {
   return stats.lastDrawDate === getTodayKey()
 }
 
-function recordDraw(stats: OmikujiStats, result: DrawResult, box: OmikujiBox): OmikujiStats {
+function recordDraw(stats: OmikujiStats, result: DrawResult, box: OmikujiBox, allowSameDayDraw = false): OmikujiStats {
   const today = getTodayKey()
 
-  if (stats.lastDrawDate === today) return stats
+  if (stats.lastDrawDate === today && !allowSameDayDraw) return stats
 
   const previousDate = getPreviousDateKey(today)
-  const streakCount = stats.lastDrawDate === previousDate ? stats.streakCount + 1 : 1
+  const streakCount =
+    stats.lastDrawDate === today ? stats.streakCount : stats.lastDrawDate === previousDate ? stats.streakCount + 1 : 1
   const drawnFortuneIds = Array.from(new Set([...stats.drawnFortuneIds, result.fortune.id]))
 
   return {
@@ -673,16 +674,33 @@ function WelcomePage({ onStart }: { onStart: () => void }) {
 function SelectPage({
   selectedBoxId,
   stats,
+  canRedrawToday,
   onBoxChange,
   onSelect,
+  onUnlockToday,
 }: {
   selectedBoxId: number
   stats: OmikujiStats
+  canRedrawToday: boolean
   onBoxChange: (boxId: number) => void
   onSelect: (box: OmikujiBox) => void
+  onUnlockToday: () => void
 }) {
   const selectedBox = omikujiBoxes.find((box) => box.id === selectedBoxId) ?? omikujiBoxes[0]
-  const drawnToday = hasDrawnToday(stats)
+  const drawnToday = hasDrawnToday(stats) && !canRedrawToday
+  const [unlockTapCount, setUnlockTapCount] = useState(0)
+
+  const handleDrawnTodayMessageTap = (event: MouseEvent<HTMLDivElement>) => {
+    event.stopPropagation()
+    setUnlockTapCount((count) => {
+      const nextCount = count + 1
+      if (nextCount >= 10) {
+        onUnlockToday()
+        return 0
+      }
+      return nextCount
+    })
+  }
 
   return (
     <motion.div
@@ -722,9 +740,8 @@ function SelectPage({
               <CarouselItem key={box.id} className="basis-[56%] pl-4">
                 <button
                   type="button"
-                  disabled={drawnToday}
                   onClick={() => onSelect(box)}
-                  className="group relative block w-full overflow-hidden rounded-lg bg-transparent p-0 transition-all duration-300 active:scale-[0.98] disabled:pointer-events-none"
+                  className="group relative block w-full overflow-hidden rounded-lg bg-transparent p-0 transition-all duration-300 active:scale-[0.98]"
                 >
                   <img
                     src={box.imageUrl}
@@ -732,7 +749,10 @@ function SelectPage({
                     className={`mx-auto aspect-square w-full object-contain drop-shadow-[0_18px_28px_rgba(0,0,0,0.55)] transition-transform duration-300 group-hover:scale-[1.03] ${drawnToday ? "opacity-45 grayscale" : ""}`}
                   />
                   {drawnToday && (
-                    <div className="absolute inset-0 flex items-center justify-center bg-background/62 px-3 backdrop-blur-[1px]">
+                    <div
+                      className="absolute inset-0 flex items-center justify-center bg-background/62 px-3 backdrop-blur-[1px]"
+                      onClick={handleDrawnTodayMessageTap}
+                    >
                       <p className="font-serif text-sm leading-relaxed text-foreground">
                         今日はもう引きました
                         <br />
@@ -1045,6 +1065,7 @@ export default function Home() {
   const [drawingEffect, setDrawingEffect] = useState<DrawEffect>(drawEffects[0])
   const [currentResult, setCurrentResult] = useState<DrawResult | null>(null)
   const [stats, setStats] = useState<OmikujiStats>(defaultStats)
+  const [canRedrawToday, setCanRedrawToday] = useState(false)
 
   useEffect(() => {
     setStats(loadStats())
@@ -1055,7 +1076,7 @@ export default function Home() {
   }
 
   const handleSelect = (box: OmikujiBox) => {
-    if (hasDrawnToday(stats)) {
+    if (hasDrawnToday(stats) && !canRedrawToday) {
       const lastResult = stats.lastResult ?? currentResult
       if (!lastResult) return
 
@@ -1072,7 +1093,7 @@ export default function Home() {
   const handleConfirmSelect = async () => {
     const box = pendingConfirmBox
     if (!box) return
-    if (hasDrawnToday(stats)) {
+    if (hasDrawnToday(stats) && !canRedrawToday) {
       setPendingConfirmBox(null)
       return
     }
@@ -1093,7 +1114,7 @@ export default function Home() {
       }
       setCurrentResult(result)
       setStats((previousStats) => {
-        const nextStats = recordDraw(previousStats, result, box)
+        const nextStats = recordDraw(previousStats, result, box, canRedrawToday)
         saveStats(nextStats)
         return nextStats
       })
@@ -1102,11 +1123,12 @@ export default function Home() {
       await wait(1800)
       setCurrentResult(fallbackResult)
       setStats((previousStats) => {
-        const nextStats = recordDraw(previousStats, fallbackResult, box)
+        const nextStats = recordDraw(previousStats, fallbackResult, box, canRedrawToday)
         saveStats(nextStats)
         return nextStats
       })
     } finally {
+      setCanRedrawToday(false)
       setStep("result")
     }
   }
@@ -1129,8 +1151,10 @@ export default function Home() {
               key="select"
               selectedBoxId={selectedBoxId}
               stats={stats}
+              canRedrawToday={canRedrawToday}
               onBoxChange={setSelectedBoxId}
               onSelect={handleSelect}
+              onUnlockToday={() => setCanRedrawToday(true)}
             />
           )}
           {step === "drawing" && (
