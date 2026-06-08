@@ -563,6 +563,16 @@ function downloadBlob(blob: Blob, filename: string) {
   window.setTimeout(() => URL.revokeObjectURL(url), 1000)
 }
 
+function isAppleMobileBrowser() {
+  if (typeof window === "undefined") return false
+
+  const userAgent = window.navigator.userAgent
+  const platform = window.navigator.platform
+  const hasTouch = window.navigator.maxTouchPoints > 1
+
+  return /iPhone|iPad|iPod/.test(userAgent) || (platform === "MacIntel" && hasTouch)
+}
+
 function SmokeBackground() {
   return (
     <div className="fixed inset-0 overflow-hidden pointer-events-none">
@@ -929,6 +939,13 @@ function ResultPage({
   const fortune = result.fortune
   const levelImageUrl = `/omikuji/frames/img_level${result.level}.png`
   const [isShareImageBusy, setIsShareImageBusy] = useState(false)
+  const [savePreviewUrl, setSavePreviewUrl] = useState<string | null>(null)
+
+  useEffect(() => {
+    return () => {
+      if (savePreviewUrl) URL.revokeObjectURL(savePreviewUrl)
+    }
+  }, [savePreviewUrl])
 
   const handleShareImage = async () => {
     setIsShareImageBusy(true)
@@ -944,7 +961,16 @@ function ResultPage({
   const handleDownloadImage = async () => {
     setIsShareImageBusy(true)
     try {
-      await downloadResultImage(result, selectedBox)
+      const blob = await createShareImageBlob(result, selectedBox)
+      if (isAppleMobileBrowser()) {
+        const previewUrl = URL.createObjectURL(blob)
+        setSavePreviewUrl((currentUrl) => {
+          if (currentUrl) URL.revokeObjectURL(currentUrl)
+          return previewUrl
+        })
+      } else {
+        downloadBlob(blob, "daikyo-omikuji-result.png")
+      }
     } catch (error) {
       console.warn("Download image failed:", error)
     } finally {
@@ -1053,6 +1079,37 @@ function ResultPage({
           </div>
         </div>
       </div>
+
+      <AnimatePresence>
+        {savePreviewUrl && (
+          <motion.div
+            className="fixed inset-0 z-50 flex items-center justify-center bg-background/88 px-4 py-8 backdrop-blur-sm"
+            initial={{ opacity: 0 }}
+            animate={{ opacity: 1 }}
+            exit={{ opacity: 0 }}
+          >
+            <div className="w-full max-w-sm space-y-4 rounded-lg border border-primary/45 bg-background/95 p-4 text-center shadow-[0_0_42px_rgba(214,158,46,0.22)]">
+              <p className="text-sm text-foreground">画像を長押しして保存してください</p>
+              <img
+                src={savePreviewUrl}
+                alt="保存用のおみくじ結果画像"
+                className="mx-auto max-h-[70vh] w-full rounded-md object-contain"
+              />
+              <Button
+                type="button"
+                variant="outline"
+                className="h-12 w-full rounded-lg border-primary/55 text-primary hover:bg-primary/10"
+                onClick={() => {
+                  URL.revokeObjectURL(savePreviewUrl)
+                  setSavePreviewUrl(null)
+                }}
+              >
+                閉じる
+              </Button>
+            </div>
+          </motion.div>
+        )}
+      </AnimatePresence>
     </motion.div>
   )
 }
