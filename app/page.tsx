@@ -454,7 +454,14 @@ function drawMultilineText(
   })
 }
 
-async function createShareImageBlob(result: DrawResult, selectedBox: OmikujiBox | null) {
+function formatDateLabel(dateKey: string | null) {
+  if (!dateKey) return "本日"
+
+  const [year, month, day] = dateKey.split("-")
+  return `${year}年${Number(month)}月${Number(day)}日`
+}
+
+async function createShareImageBlob(result: DrawResult, selectedBox: OmikujiBox | null, stats: OmikujiStats) {
   const canvas = document.createElement("canvas")
   canvas.width = 1080
   canvas.height = 1600
@@ -500,24 +507,32 @@ async function createShareImageBlob(result: DrawResult, selectedBox: OmikujiBox 
   context.textAlign = "left"
   context.fillStyle = "#f6a23a"
   context.font = "700 30px sans-serif"
-  context.fillText("本日の想定負け金額", 105, 1225)
+  context.fillText("おみくじを引いた日", 105, 1190)
 
-  context.fillStyle = "#ff1747"
-  context.font = "700 62px serif"
-  context.fillText(yenFormatter.format(result.lossAmount), 105, 1300)
+  context.fillStyle = "#fff7e6"
+  context.font = "700 48px serif"
+  context.fillText(formatDateLabel(stats.lastDrawDate), 105, 1250)
 
   context.fillStyle = "#f6a23a"
   context.font = "700 30px sans-serif"
-  context.fillText("この金額で買えたもの", 105, 1370)
+  context.fillText("連続おみくじ回数", 105, 1325)
 
-  context.fillStyle = "#fff7e6"
-  context.font = "700 52px serif"
-  context.fillText(result.purchaseItemName, 105, 1445)
+  context.fillStyle = "#ff1747"
+  context.font = "700 54px serif"
+  context.fillText(`${stats.streakCount}回`, 105, 1384)
+
+  context.fillStyle = "#f6a23a"
+  context.font = "700 30px sans-serif"
+  context.fillText("累計の想定負け金額", 105, 1458)
+
+  context.fillStyle = "#ff1747"
+  context.font = "700 54px serif"
+  context.fillText(yenFormatter.format(stats.totalLossAmount), 105, 1518)
 
   context.textAlign = "center"
   context.fillStyle = "rgba(255,255,255,0.68)"
   context.font = "400 28px sans-serif"
-  drawMultilineText(context, "今日だけ行かない理由を、運勢のせいにしよう。", canvas.width / 2, 1530, 840, 36, 2)
+  drawMultilineText(context, "今日だけ行かない理由を、運勢のせいにしよう。", canvas.width / 2, 1572, 840, 36, 1)
 
   return new Promise<Blob>((resolve, reject) => {
     canvas.toBlob((blob) => {
@@ -530,8 +545,8 @@ async function createShareImageBlob(result: DrawResult, selectedBox: OmikujiBox 
   })
 }
 
-async function shareResultImage(result: DrawResult, selectedBox: OmikujiBox | null) {
-  const blob = await createShareImageBlob(result, selectedBox)
+async function shareResultImage(result: DrawResult, selectedBox: OmikujiBox | null, stats: OmikujiStats) {
+  const blob = await createShareImageBlob(result, selectedBox, stats)
   const file = new File([blob], "daikyo-omikuji-result.png", { type: "image/png" })
   const shareData = {
     title: "大凶おみくじ",
@@ -547,8 +562,8 @@ async function shareResultImage(result: DrawResult, selectedBox: OmikujiBox | nu
   downloadBlob(blob, "daikyo-omikuji-result.png")
 }
 
-async function downloadResultImage(result: DrawResult, selectedBox: OmikujiBox | null) {
-  const blob = await createShareImageBlob(result, selectedBox)
+async function downloadResultImage(result: DrawResult, selectedBox: OmikujiBox | null, stats: OmikujiStats) {
+  const blob = await createShareImageBlob(result, selectedBox, stats)
   downloadBlob(blob, "daikyo-omikuji-result.png")
 }
 
@@ -930,10 +945,12 @@ function DrawingPage({ box, effect }: { box: OmikujiBox | null; effect: DrawEffe
 function ResultPage({
   result,
   selectedBox,
+  stats,
   onRetry,
 }: {
   result: DrawResult
   selectedBox: OmikujiBox | null
+  stats: OmikujiStats
   onRetry: () => void
 }) {
   const fortune = result.fortune
@@ -950,7 +967,7 @@ function ResultPage({
   const handleShareImage = async () => {
     setIsShareImageBusy(true)
     try {
-      await shareResultImage(result, selectedBox)
+      await shareResultImage(result, selectedBox, stats)
     } catch (error) {
       console.warn("Share image failed:", error)
     } finally {
@@ -961,7 +978,7 @@ function ResultPage({
   const handleDownloadImage = async () => {
     setIsShareImageBusy(true)
     try {
-      const blob = await createShareImageBlob(result, selectedBox)
+      const blob = await createShareImageBlob(result, selectedBox, stats)
       if (isAppleMobileBrowser()) {
         const previewUrl = URL.createObjectURL(blob)
         setSavePreviewUrl((currentUrl) => {
@@ -1226,6 +1243,7 @@ export default function Home() {
               key="result"
               result={currentResult}
               selectedBox={selectedBox}
+              stats={stats}
               onRetry={handleRetry}
             />
           )}
