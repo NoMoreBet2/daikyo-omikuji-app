@@ -156,13 +156,13 @@ const drawEffects: DrawEffect[] = [
     mainText: "もうだめだっ...",
     leftText: "疾風の抜ける",
     rightText: "静かに帰れ",
-    tone: "purple",
+    tone: "red",
   },
   {
     mainText: "あぁぁぁ...",
     leftText: "財布の結界",
     rightText: "家路を選べ",
-    tone: "purple",
+    tone: "red",
   },
 ]
 
@@ -540,8 +540,8 @@ function ConfirmBoxDialog({
 }
 
 function DrawingPage({ box, effect }: { box: OmikujiBox | null; effect: DrawEffect }) {
-  const beamColor = effect.tone === "red" ? "239,68,68" : "168,85,247"
-  const glowColor = effect.tone === "red" ? "rgba(239,68,68,0.8)" : "rgba(168,85,247,0.82)"
+  const beamColor = "239,68,68"
+  const glowColor = "rgba(239,68,68,0.82)"
 
   return (
     <motion.div
@@ -560,27 +560,20 @@ function DrawingPage({ box, effect }: { box: OmikujiBox | null; effect: DrawEffe
       <div className="absolute inset-0 bg-background/55" />
       <div className="absolute inset-0 bg-[radial-gradient(circle_at_center,transparent_0%,oklch(0.04_0.02_285_/_0.82)_72%)]" />
       <div
-        className="absolute left-1/2 top-[18%] h-[52%] w-28 -translate-x-1/2 animate-pulse blur-2xl"
+        className="absolute left-1/2 top-[8%] h-[48%] w-24 -translate-x-1/2 animate-pulse blur-2xl"
         style={{
           background: `linear-gradient(to bottom, rgba(${beamColor},0), rgba(${beamColor},0.75), rgba(${beamColor},0))`,
         }}
       />
 
       <div className="relative z-10 flex min-h-screen flex-col items-center justify-end px-5 pb-20 pt-16 text-center">
-        <div className="absolute left-7 top-1/2 -translate-y-1/2 [writing-mode:vertical-rl] font-serif text-lg tracking-[0.28em] text-primary/70">
-          {effect.leftText}
-        </div>
-        <div className="absolute right-7 top-1/2 -translate-y-1/2 [writing-mode:vertical-rl] font-serif text-lg tracking-[0.28em] text-primary/70">
-          {effect.rightText}
-        </div>
-
         <motion.div
-          initial={{ opacity: 0, y: 28, scale: 0.92 }}
-          animate={{ opacity: 1, y: 0, scale: 1 }}
-          transition={{ duration: 0.7, ease: "easeOut" }}
-          className="absolute left-1/2 top-[10%] z-30 -translate-x-1/2 [writing-mode:vertical-rl] font-serif text-5xl font-bold tracking-[0.14em]"
+          initial={{ opacity: 0.08, y: 24, scale: 0.94 }}
+          animate={{ opacity: 1, y: -8, scale: 1 }}
+          transition={{ duration: 1.05, ease: "easeOut" }}
+          className="absolute left-1/2 top-[5%] z-30 -translate-x-1/2 [writing-mode:vertical-rl] font-serif text-4xl font-bold tracking-[0.12em]"
           style={{
-            color: effect.tone === "red" ? "#ff4c4c" : "#d487ff",
+            color: "#ff4c4c",
             textShadow: `0 0 18px ${glowColor}, 0 0 42px ${glowColor}`,
           }}
         >
