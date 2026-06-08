@@ -390,6 +390,178 @@ function getLineShareUrl(result: DrawResult, selectedBox: OmikujiBox | null): st
   return `https://line.me/R/msg/text/?${text}`
 }
 
+function loadCanvasImage(src: string) {
+  return new Promise<HTMLImageElement>((resolve, reject) => {
+    const image = new Image()
+    image.crossOrigin = "anonymous"
+    image.onload = () => resolve(image)
+    image.onerror = reject
+    image.src = src
+  })
+}
+
+function drawContainedImage(
+  context: CanvasRenderingContext2D,
+  image: HTMLImageElement,
+  x: number,
+  y: number,
+  width: number,
+  height: number,
+) {
+  const scale = Math.min(width / image.naturalWidth, height / image.naturalHeight)
+  const drawWidth = image.naturalWidth * scale
+  const drawHeight = image.naturalHeight * scale
+  const drawX = x + (width - drawWidth) / 2
+  const drawY = y + (height - drawHeight) / 2
+
+  context.drawImage(image, drawX, drawY, drawWidth, drawHeight)
+}
+
+function drawMultilineText(
+  context: CanvasRenderingContext2D,
+  text: string,
+  x: number,
+  y: number,
+  maxWidth: number,
+  lineHeight: number,
+  maxLines: number,
+) {
+  const paragraphs = text.split("\n")
+  const lines: string[] = []
+
+  for (const paragraph of paragraphs) {
+    let currentLine = ""
+
+    for (const char of paragraph) {
+      const testLine = currentLine + char
+      if (context.measureText(testLine).width > maxWidth && currentLine) {
+        lines.push(currentLine)
+        currentLine = char
+      } else {
+        currentLine = testLine
+      }
+
+      if (lines.length >= maxLines) break
+    }
+
+    if (lines.length >= maxLines) break
+    if (currentLine) lines.push(currentLine)
+  }
+
+  lines.slice(0, maxLines).forEach((line, index) => {
+    context.fillText(line, x, y + index * lineHeight)
+  })
+}
+
+async function createShareImageBlob(result: DrawResult, selectedBox: OmikujiBox | null) {
+  const canvas = document.createElement("canvas")
+  canvas.width = 1080
+  canvas.height = 1600
+  const context = canvas.getContext("2d")
+
+  if (!context) {
+    throw new Error("Canvas is not supported")
+  }
+
+  const [fortuneImage, levelImage] = await Promise.all([
+    loadCanvasImage(result.fortune.imageUrl),
+    loadCanvasImage(`/omikuji/frames/img_level${result.level}.png`),
+  ])
+
+  const background = context.createLinearGradient(0, 0, 0, canvas.height)
+  background.addColorStop(0, "#09020f")
+  background.addColorStop(0.52, "#160622")
+  background.addColorStop(1, "#05020a")
+  context.fillStyle = background
+  context.fillRect(0, 0, canvas.width, canvas.height)
+
+  context.fillStyle = "rgba(214, 158, 46, 0.32)"
+  context.fillRect(44, 44, canvas.width - 88, 4)
+  context.fillRect(44, canvas.height - 48, canvas.width - 88, 4)
+  context.fillRect(44, 44, 4, canvas.height - 88)
+  context.fillRect(canvas.width - 48, 44, 4, canvas.height - 88)
+
+  context.textAlign = "center"
+  context.fillStyle = "#f8df9a"
+  context.font = "700 74px serif"
+  context.fillText("大凶おみくじ", canvas.width / 2, 145)
+
+  context.fillStyle = "rgba(255,255,255,0.72)"
+  context.font = "400 30px serif"
+  context.fillText(selectedBox ? `${selectedBox.name}から授かりました` : "賭内神社から授かりました", canvas.width / 2, 200)
+
+  context.fillStyle = "rgba(0,0,0,0.34)"
+  context.fillRect(140, 245, 800, 720)
+  drawContainedImage(context, fortuneImage, 170, 275, 740, 650)
+
+  drawContainedImage(context, levelImage, 120, 1005, 840, 150)
+
+  context.textAlign = "left"
+  context.fillStyle = "#f6a23a"
+  context.font = "700 30px sans-serif"
+  context.fillText("本日の想定負け金額", 105, 1225)
+
+  context.fillStyle = "#ff1747"
+  context.font = "700 62px serif"
+  context.fillText(yenFormatter.format(result.lossAmount), 105, 1300)
+
+  context.fillStyle = "#f6a23a"
+  context.font = "700 30px sans-serif"
+  context.fillText("この金額で買えたもの", 105, 1370)
+
+  context.fillStyle = "#fff7e6"
+  context.font = "700 52px serif"
+  context.fillText(result.purchaseItemName, 105, 1445)
+
+  context.textAlign = "center"
+  context.fillStyle = "rgba(255,255,255,0.68)"
+  context.font = "400 28px sans-serif"
+  drawMultilineText(context, "今日だけ行かない理由を、運勢のせいにしよう。", canvas.width / 2, 1530, 840, 36, 2)
+
+  return new Promise<Blob>((resolve, reject) => {
+    canvas.toBlob((blob) => {
+      if (blob) {
+        resolve(blob)
+      } else {
+        reject(new Error("Failed to create share image"))
+      }
+    }, "image/png")
+  })
+}
+
+async function shareResultImage(result: DrawResult, selectedBox: OmikujiBox | null) {
+  const blob = await createShareImageBlob(result, selectedBox)
+  const file = new File([blob], "daikyo-omikuji-result.png", { type: "image/png" })
+  const shareData = {
+    title: "大凶おみくじ",
+    text: "今日の大凶おみくじ結果です。",
+    files: [file],
+  }
+
+  if (navigator.canShare?.({ files: [file] })) {
+    await navigator.share(shareData)
+    return
+  }
+
+  downloadBlob(blob, "daikyo-omikuji-result.png")
+}
+
+async function downloadResultImage(result: DrawResult, selectedBox: OmikujiBox | null) {
+  const blob = await createShareImageBlob(result, selectedBox)
+  downloadBlob(blob, "daikyo-omikuji-result.png")
+}
+
+function downloadBlob(blob: Blob, filename: string) {
+  const url = URL.createObjectURL(blob)
+  const anchor = document.createElement("a")
+  anchor.href = url
+  anchor.download = filename
+  document.body.appendChild(anchor)
+  anchor.click()
+  anchor.remove()
+  window.setTimeout(() => URL.revokeObjectURL(url), 1000)
+}
+
 function SmokeBackground() {
   return (
     <div className="fixed inset-0 overflow-hidden pointer-events-none">
@@ -736,6 +908,29 @@ function ResultPage({
 }) {
   const fortune = result.fortune
   const levelImageUrl = `/omikuji/frames/img_level${result.level}.png`
+  const [isShareImageBusy, setIsShareImageBusy] = useState(false)
+
+  const handleShareImage = async () => {
+    setIsShareImageBusy(true)
+    try {
+      await shareResultImage(result, selectedBox)
+    } catch (error) {
+      console.warn("Share image failed:", error)
+    } finally {
+      setIsShareImageBusy(false)
+    }
+  }
+
+  const handleDownloadImage = async () => {
+    setIsShareImageBusy(true)
+    try {
+      await downloadResultImage(result, selectedBox)
+    } catch (error) {
+      console.warn("Download image failed:", error)
+    } finally {
+      setIsShareImageBusy(false)
+    }
+  }
 
   return (
     <motion.div
@@ -815,6 +1010,24 @@ function ResultPage({
                 onClick={() => window.open(getTwitterShareUrl(result, selectedBox), "_blank")}
               >
                 Xでシェア
+              </Button>
+            </div>
+
+            <div className="grid grid-cols-2 gap-3">
+              <Button
+                className="h-12 rounded-lg bg-gradient-to-b from-gold via-primary to-gold-dark font-bold text-primary-foreground shadow-[0_0_20px_rgba(214,158,46,0.28)] hover:scale-[1.01] active:scale-[0.985]"
+                disabled={isShareImageBusy}
+                onClick={handleShareImage}
+              >
+                {isShareImageBusy ? "画像を生成中" : "画像でシェア"}
+              </Button>
+              <Button
+                variant="outline"
+                className="h-12 rounded-lg border-primary/55 text-primary hover:bg-primary/10"
+                disabled={isShareImageBusy}
+                onClick={handleDownloadImage}
+              >
+                画像を保存
               </Button>
             </div>
           </div>
