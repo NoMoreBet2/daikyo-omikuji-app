@@ -1,7 +1,7 @@
 "use client"
 
 import type { ReactNode } from "react"
-import { useState } from "react"
+import { useEffect, useState } from "react"
 import { motion, AnimatePresence } from "framer-motion"
 import { Button } from "@/components/ui/button"
 import {
@@ -44,6 +44,24 @@ interface DrawEffect {
   leftText: string
   rightText: string
   tone: "red" | "purple"
+}
+
+interface OmikujiStats {
+  lastDrawDate: string | null
+  streakCount: number
+  totalLossAmount: number
+  drawnFortuneIds: number[]
+  drawCount: number
+}
+
+const statsStorageKey = "daikyo-omikuji-stats-v1"
+
+const defaultStats: OmikujiStats = {
+  lastDrawDate: null,
+  streakCount: 0,
+  totalLossAmount: 0,
+  drawnFortuneIds: [],
+  drawCount: 0,
 }
 
 const yenFormatter = new Intl.NumberFormat("ja-JP", {
@@ -170,6 +188,82 @@ function wait(ms: number) {
   return new Promise((resolve) => {
     window.setTimeout(resolve, ms)
   })
+}
+
+function getTodayKey() {
+  const parts = new Intl.DateTimeFormat("ja-JP", {
+    timeZone: "Asia/Tokyo",
+    year: "numeric",
+    month: "2-digit",
+    day: "2-digit",
+  }).formatToParts(new Date())
+
+  const year = parts.find((part) => part.type === "year")?.value ?? "1970"
+  const month = parts.find((part) => part.type === "month")?.value ?? "01"
+  const day = parts.find((part) => part.type === "day")?.value ?? "01"
+
+  return `${year}-${month}-${day}`
+}
+
+function getPreviousDateKey(dateKey: string) {
+  const date = new Date(`${dateKey}T00:00:00+09:00`)
+  date.setDate(date.getDate() - 1)
+
+  const year = date.getFullYear()
+  const month = String(date.getMonth() + 1).padStart(2, "0")
+  const day = String(date.getDate()).padStart(2, "0")
+
+  return `${year}-${month}-${day}`
+}
+
+function normalizeStats(value: unknown): OmikujiStats {
+  if (!value || typeof value !== "object") return defaultStats
+
+  const stats = value as Partial<OmikujiStats>
+
+  return {
+    lastDrawDate: typeof stats.lastDrawDate === "string" ? stats.lastDrawDate : null,
+    streakCount: typeof stats.streakCount === "number" ? stats.streakCount : 0,
+    totalLossAmount: typeof stats.totalLossAmount === "number" ? stats.totalLossAmount : 0,
+    drawnFortuneIds: Array.isArray(stats.drawnFortuneIds)
+      ? stats.drawnFortuneIds.filter((id): id is number => typeof id === "number")
+      : [],
+    drawCount: typeof stats.drawCount === "number" ? stats.drawCount : 0,
+  }
+}
+
+function loadStats(): OmikujiStats {
+  try {
+    return normalizeStats(JSON.parse(window.localStorage.getItem(statsStorageKey) ?? "null"))
+  } catch {
+    return defaultStats
+  }
+}
+
+function saveStats(stats: OmikujiStats) {
+  window.localStorage.setItem(statsStorageKey, JSON.stringify(stats))
+}
+
+function hasDrawnToday(stats: OmikujiStats) {
+  return stats.lastDrawDate === getTodayKey()
+}
+
+function recordDraw(stats: OmikujiStats, result: DrawResult): OmikujiStats {
+  const today = getTodayKey()
+
+  if (stats.lastDrawDate === today) return stats
+
+  const previousDate = getPreviousDateKey(today)
+  const streakCount = stats.lastDrawDate === previousDate ? stats.streakCount + 1 : 1
+  const drawnFortuneIds = Array.from(new Set([...stats.drawnFortuneIds, result.fortune.id]))
+
+  return {
+    lastDrawDate: today,
+    streakCount,
+    totalLossAmount: stats.totalLossAmount + result.lossAmount,
+    drawnFortuneIds,
+    drawCount: stats.drawCount + 1,
+  }
 }
 
 function pickRandom<T>(items: T[]): T {
@@ -398,14 +492,17 @@ function WelcomePage({ onStart }: { onStart: () => void }) {
 
 function SelectPage({
   selectedBoxId,
+  stats,
   onBoxChange,
   onSelect,
 }: {
   selectedBoxId: number
+  stats: OmikujiStats
   onBoxChange: (boxId: number) => void
   onSelect: (box: OmikujiBox) => void
 }) {
   const selectedBox = omikujiBoxes.find((box) => box.id === selectedBoxId) ?? omikujiBoxes[0]
+  const drawnToday = hasDrawnToday(stats)
 
   return (
     <motion.div
@@ -430,6 +527,17 @@ function SelectPage({
           <h2 className="font-serif text-3xl font-bold text-foreground">おみくじ箱を選ぶ</h2>
         </div>
 
+        <div className="grid grid-cols-2 gap-3 text-left">
+          <div className="rounded-lg border border-primary/35 bg-background/55 px-4 py-3 shadow-[0_0_18px_rgba(214,158,46,0.12)]">
+            <p className="text-[0.65rem] tracking-[0.18em] text-primary">連続おみくじ回数</p>
+            <p className="mt-1 font-serif text-2xl text-foreground">{stats.streakCount}回</p>
+          </div>
+          <div className="rounded-lg border border-primary/35 bg-background/55 px-4 py-3 shadow-[0_0_18px_rgba(214,158,46,0.12)]">
+            <p className="text-[0.65rem] tracking-[0.18em] text-primary">累計想定負け金額</p>
+            <p className="mt-1 font-serif text-xl text-accent">{yenFormatter.format(stats.totalLossAmount)}</p>
+          </div>
+        </div>
+
         <Carousel
           opts={{ align: "center", loop: true }}
           className="mx-auto w-full max-w-md overflow-hidden"
@@ -445,8 +553,9 @@ function SelectPage({
               <CarouselItem key={box.id} className="basis-[56%] pl-4">
                 <button
                   type="button"
+                  disabled={drawnToday}
                   onClick={() => onSelect(box)}
-                  className="group relative block w-full overflow-hidden rounded-lg bg-transparent p-0 transition-all duration-300 active:scale-[0.98]"
+                  className="group relative block w-full overflow-hidden rounded-lg bg-transparent p-0 transition-all duration-300 active:scale-[0.98] disabled:pointer-events-none disabled:opacity-55"
                 >
                   <img
                     src={box.imageUrl}
@@ -469,13 +578,16 @@ function SelectPage({
 
           <Button
             onClick={() => onSelect(selectedBox)}
+            disabled={drawnToday}
             size="lg"
             className="h-16 w-full rounded-[0.625rem] bg-gradient-to-b from-gold via-primary to-gold-dark text-lg font-bold text-primary-foreground shadow-[0_0_24px_rgba(214,158,46,0.36)] hover:scale-[1.01] hover:shadow-[0_0_34px_rgba(214,158,46,0.55)] active:scale-[0.985]"
           >
-            今日の運勢を占う
+            {drawnToday ? "本日は参拝済み" : "今日の運勢を占う"}
           </Button>
 
-          <p className="text-xs text-muted-foreground">※どの箱を選んでも、良い結果は出ません</p>
+          <p className="text-xs text-muted-foreground">
+            {drawnToday ? "※おみくじは一日一回までです" : "※どの箱を選んでも、良い結果は出ません"}
+          </p>
         </div>
       </div>
     </motion.div>
@@ -703,18 +815,28 @@ export default function Home() {
   const [pendingConfirmBox, setPendingConfirmBox] = useState<OmikujiBox | null>(null)
   const [drawingEffect, setDrawingEffect] = useState<DrawEffect>(drawEffects[0])
   const [currentResult, setCurrentResult] = useState<DrawResult | null>(null)
+  const [stats, setStats] = useState<OmikujiStats>(defaultStats)
+
+  useEffect(() => {
+    setStats(loadStats())
+  }, [])
 
   const handleStart = () => {
     setStep("select")
   }
 
   const handleSelect = (box: OmikujiBox) => {
+    if (hasDrawnToday(stats)) return
     setPendingConfirmBox(box)
   }
 
   const handleConfirmSelect = async () => {
     const box = pendingConfirmBox
     if (!box) return
+    if (hasDrawnToday(stats)) {
+      setPendingConfirmBox(null)
+      return
+    }
 
     setPendingConfirmBox(null)
     setSelectedBox(box)
@@ -726,14 +848,25 @@ export default function Home() {
 
     try {
       const [aiMessages] = await Promise.all([generateAiMessages(box, fallbackResult), wait(1800)])
-      setCurrentResult({
+      const result = {
         ...fallbackResult,
         ...aiMessages,
+      }
+      setCurrentResult(result)
+      setStats((previousStats) => {
+        const nextStats = recordDraw(previousStats, result)
+        saveStats(nextStats)
+        return nextStats
       })
     } catch (error) {
       console.warn("Falling back to local omikuji messages:", error)
       await wait(1800)
       setCurrentResult(fallbackResult)
+      setStats((previousStats) => {
+        const nextStats = recordDraw(previousStats, fallbackResult)
+        saveStats(nextStats)
+        return nextStats
+      })
     } finally {
       setStep("result")
     }
@@ -756,6 +889,7 @@ export default function Home() {
             <SelectPage
               key="select"
               selectedBoxId={selectedBoxId}
+              stats={stats}
               onBoxChange={setSelectedBoxId}
               onSelect={handleSelect}
             />
