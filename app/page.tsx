@@ -578,14 +578,14 @@ function downloadBlob(blob: Blob, filename: string) {
   window.setTimeout(() => URL.revokeObjectURL(url), 1000)
 }
 
-function isAppleMobileBrowser() {
+function isMobileBrowser() {
   if (typeof window === "undefined") return false
 
   const userAgent = window.navigator.userAgent
   const platform = window.navigator.platform
   const hasTouch = window.navigator.maxTouchPoints > 1
 
-  return /iPhone|iPad|iPod/.test(userAgent) || (platform === "MacIntel" && hasTouch)
+  return /Android|iPhone|iPad|iPod/i.test(userAgent) || (platform === "MacIntel" && hasTouch)
 }
 
 function SmokeBackground() {
@@ -979,7 +979,7 @@ function ResultPage({
     setIsShareImageBusy(true)
     try {
       const blob = await createShareImageBlob(result, selectedBox, stats)
-      if (isAppleMobileBrowser()) {
+      if (isMobileBrowser()) {
         const previewUrl = URL.createObjectURL(blob)
         setSavePreviewUrl((currentUrl) => {
           if (currentUrl) URL.revokeObjectURL(currentUrl)
